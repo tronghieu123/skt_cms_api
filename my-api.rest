@@ -1,0 +1,22 @@
+###
+POST /sky/admin/login
+Host: server01
+Content-Type: application/json
+
+{
+    "username": "admin",
+    "password": "IMSabcd@"
+}
+
+###
+GET /sky/admin/api/v1/province?include=district
+Host: server01
+Authorization: Bearer 65829d25d0c87aff7c0d60ab|2U9GKENSzvX5VMNhKP3vJHmXcsWuena8yAMdzv7u4c2ba9fe
+
+###
+GET /sky/admin/api/v1/province/13000
+Host: server01
+
+###
+GET /sky/admin/api/v1/district?filter[province_code]=13000
+Host: server01
