@@ -2,14 +2,10 @@
 
 namespace App\Models\Sky\User;
 
-//use http\Env\Request;
 use Illuminate\Support\Facades\Hash;
 use MongoDB\Laravel\Eloquent\Model;
 use App\Http\Token;
 use Illuminate\Support\Facades\Http;
-//use Illuminate\Support\Facades\DB;
-//use Illuminate\Support\Facades\Validator;
-//use App\Models\Sky\User\UserRequest;
 
 class User extends Model
 {

@@ -333,7 +333,8 @@ class Driver_Income extends Model{
             'user_cancel' => 'ADMIN',
             'date_cancel' => mongo_time(),
             'driver_cancel_count' => $infoBooking['driver_cancel_count'] + 1,
-            'driver_waiting_date' => '',
+            'driver_waiting_date' => 0,
+            'driver_waiting_expired' => 0,
             'driver_waiting_confirm' => '',
             'driver_waiting_confirm_fullname' => '',
         ];

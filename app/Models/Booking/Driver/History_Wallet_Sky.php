@@ -58,11 +58,12 @@ class History_Wallet_Sky extends Model{
                 }
             }
         }
-
         return response_pagination($data);
     }
+
     public static function scopeFilter($query){
-        $query->when(!empty(request('keyword')) ?? null, function ($query){
+        $query->where('is_show', 1)
+            ->when(!empty(request('keyword')) ?? null, function ($query){
             $keyword = explode_custom(request('keyword'),' ');
             $query->whereHas('driver', function($q) use($keyword){
                 if($keyword){

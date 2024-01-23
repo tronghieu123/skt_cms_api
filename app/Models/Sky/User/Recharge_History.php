@@ -35,7 +35,7 @@ class Recharge_History extends Model
                 ->when(request('type') == 'approved' ?? null, function ($query){
                     $query->where('is_status', 1); // Đã duyệt
                 })
-                ->when(request('type') == 'refuse' ?? null, function ($query){
+                ->when(request('type') == 'reject' ?? null, function ($query){
                     $query->where('is_status', 2); // từ chối
                 })
                 ->with('user')
@@ -55,7 +55,7 @@ class Recharge_History extends Model
         $data['all'] = Recharge_History::filter()->where('type', 'user')->count();
         $data['pending'] = Recharge_History::filter()->where('type', 'user')->where('is_status', 0)->count();
         $data['approved'] = Recharge_History::filter()->where('type', 'user')->where('is_status', 1)->count();
-        $data['refuse'] = Recharge_History::filter()->where('type', 'user')->where('is_status', 2)->count();
+        $data['reject'] = Recharge_History::filter()->where('type', 'user')->where('is_status', 2)->count();
         return $data;
     }
 

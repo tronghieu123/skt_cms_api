@@ -898,3 +898,25 @@ function color_status($code=0) {
     }
     return $output;
 }
+
+function sky_hash_hmac($inputData=array(), $type='') {
+    unset($inputData['securehash']);
+    $serectKey = $type . '-5ead2ac1c87bbf33555c2cdd055f319c897a62e53fb9d6ed51a008cb1fd4f721963568a6ee1d651cbff18aa319052700ce0c61c1d7b1dc91a354b6fc73592c74';
+    ksort($inputData);
+    $i = 0;
+    $hashData = "";
+    foreach ($inputData as $key => $value) {
+        if ($i == 1) {
+            $hashData = $hashData . '&' . urlencode($key) . "=" . urlencode($value);
+        } else {
+            $hashData = $hashData . urlencode($key) . "=" . urlencode($value);
+            $i = 1;
+        }
+    }
+    $output = hash_hmac('sha512', $hashData, md5($hashData) . $serectKey);
+    return $output;
+}
+function formatNumber($num){
+    $num = ltrim($num, '0');
+    return number_format($num,0,'.',',');
+}

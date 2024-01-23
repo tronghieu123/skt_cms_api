@@ -25,6 +25,7 @@ class Wallet_Cash_Log extends Model{
         }
         $data = Wallet_Cash_Log::filter()
             ->with('user_info')
+            ->where('is_show', 1)
             ->where('is_status', 1)
             ->orderBy('created_at', 'desc')
             ->paginate(Config('per_page'), Config('fillable'), 'page', Config('current_page'))

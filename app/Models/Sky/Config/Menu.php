@@ -4,14 +4,10 @@ namespace App\Models\Sky\Config;
 
 use MongoDB\Laravel\Eloquent\Model;
 
-class Menu extends Model
-{
+class Menu extends Model{
     public $timestamps = false;
-
     protected $connection = 'sky_cms';
-
     protected $table = 'admin_menu';
-
     protected $with = ['sub'];
 
     protected $casts = [
@@ -49,17 +45,7 @@ class Menu extends Model
                 ->orderBy('created_at','asc')
                 ->paginate(Config('per_page'), Config('fillable'), 'page', Config('current_page'))->toArray();
             //$data['data'] = formatData($data['data']);
-            return response()->json([
-                    'error' => 0,
-                    'code' => 200,
-                    'message' => '',
-                    'data' => $data['data'],
-                    'from' => $data['from'],
-                    'to' => $data['to'],
-                    'total' => $data['total'],
-                    'current_page' => $data['current_page'],
-                    'links' => $data['links']
-                ],200);
+            return response_pagination($data);
         }else{
             $data = Menu::where('type', request('root'))
                 ->when(request('sub') == 'manage' ?? null, function ($query){
@@ -72,12 +58,7 @@ class Menu extends Model
                 ->orderBy('created_at','asc')
                 ->get(config('fillable'))->toArray();
             //$data = formatData($data);
-            return response()->json([
-                    'error' => 0,
-                    'code' => 200,
-                    'message' => '',
-                    'data' => $data
-                ],200);
+            return response_custom('',0,$data);
         }
     }
 

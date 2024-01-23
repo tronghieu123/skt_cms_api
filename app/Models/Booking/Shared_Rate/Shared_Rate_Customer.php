@@ -54,7 +54,7 @@ class Shared_Rate_Customer extends Model{
     public static function scopeFilter($query)
     {
         $filter = !empty(request('arr_filter')) ? json_decode(request('arr_filter'), true) : [];
-        $query->when(!empty($filter['keyword']) ?? null, function ($query) use($filter){            
+        $query->when(!empty($filter['keyword']) ?? null, function ($query) use($filter){
             $query->whereHas('userInfo', function($q) use($filter) {
                 $keyword = explode_custom($filter['keyword'],' ');
                 if($keyword){
@@ -248,9 +248,9 @@ class Shared_Rate_Customer extends Model{
                 'type' => 'rate_bonus',
                 'item_code' => $data['booking']['item_code'],
                 'value_type' => 1,
-                'value' => (float)$money_bonus_driver,
-                'value_before' => (float)$wallet_sky,
-                'value_after' => (float)($wallet_sky + $money_bonus_driver),
+                'value' => (double)$money_bonus_driver,
+                'value_before' => (double)$wallet_sky,
+                'value_after' => (double)($wallet_sky + $money_bonus_driver),
                 'partner_id' => $data['driver']['partner']['_id'] ?? '',
                 'is_status' => 1,
                 'is_show' => 1,
@@ -261,8 +261,8 @@ class Shared_Rate_Customer extends Model{
             $ok1 = History_Wallet_Sky::insert($add_history_wallet_sky);
             if($ok1){
                 $update_partner = [
-                    'wallet_sky' => (float)($wallet_sky + $money_bonus_driver),
-                    'wallet_sky_total' => (float)($wallet_sky_total + $money_bonus_driver)
+                    'wallet_sky' => (double)($wallet_sky + $money_bonus_driver),
+                    'wallet_sky_total' => (double)($wallet_sky_total + $money_bonus_driver)
                 ];
                 Partner::where('_id', $data['driver']['partner']['_id'])->update($update_partner);
                 $device_token_driver = Driver_Token::where('driver_id', $data['driver']['_id'])->pluck('device_token');
@@ -274,7 +274,7 @@ class Shared_Rate_Customer extends Model{
                             'template' => 'addMoneyCustomerRateToDriver',
                             'arr_replace' => [
                                 'body' => [
-                                    'money' => number_format($money_bonus_driver,0,',','.'),
+                                    'money' => formatNumber($money_bonus_driver),
                                     'booking' => $data['booking']['item_code']
                                 ]
                             ],
@@ -299,9 +299,9 @@ class Shared_Rate_Customer extends Model{
                 'type' => 'rate_bonus',
                 'item_code' => $data['booking']['item_code'],
                 'value_type' => 1,
-                'value' => (float)$spoint_bonus_customer,
-                'value_before' => (float)$wallet_point,
-                'value_after' => (float)($wallet_point + $spoint_bonus_customer),
+                'value' => (double)$spoint_bonus_customer,
+                'value_before' => (double)$wallet_point,
+                'value_after' => (double)($wallet_point + $spoint_bonus_customer),
                 'user_id' => $data['customer']['_id'] ?? '',
                 'is_status' => 1,
                 'is_show' => 1,
@@ -312,8 +312,8 @@ class Shared_Rate_Customer extends Model{
             $ok2 = Wallet_Point_Log::insert($add_wallet_point_log);
             if($ok2){
                 $update_user = [
-                    'wallet_point' => (float)($wallet_point + $spoint_bonus_customer),
-                    'wallet_point_total' => (float)($wallet_point_total + $spoint_bonus_customer),
+                    'wallet_point' => (double)($wallet_point + $spoint_bonus_customer),
+                    'wallet_point_total' => (double)($wallet_point_total + $spoint_bonus_customer),
                     'wallet_point_change' => 1
                 ];
                 User::where('_id', $data['customer']['_id'])->update($update_user);
@@ -326,7 +326,7 @@ class Shared_Rate_Customer extends Model{
                             'template' => 'addSpointCustomerRateToUser',
                             'arr_replace' => [
                                 'body' => [
-                                    'spoint' => number_format($spoint_bonus_customer,0,',','.'),
+                                    'spoint' => formatNumber($spoint_bonus_customer),
                                     'booking' => $data['booking']['item_code']
                                 ]
                             ],

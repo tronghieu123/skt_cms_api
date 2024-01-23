@@ -2,6 +2,7 @@
 
 namespace App\Models\Sky\User;
 
+use Illuminate\Support\Facades\Http;
 use MongoDB\Laravel\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
@@ -89,54 +90,69 @@ class Wallet_Point_Log extends Model{
                     $user = User::where('_id', $arr_data['user_id'])->first();
                     if($user){
                         $user = $user->toArray();
+                        $wallet_point = !empty($user['wallet_point']) ? $user['wallet_point'] : 0;
+                        $wallet_point_total = !empty($user['wallet_point_total']) ? $user['wallet_point_total'] : 0;
                         if(!empty($arr_data['type']) && in_array($arr_data['type'], ['admin_add','admin_minus'])){
                             $value_type = ($arr_data['type'] == 'admin_add') ? 1 : -1;
-                            if(!empty($arr_data['value']) || !is_numeric($arr_data['value'])){
+                            if(!empty($arr_data['value']) && is_numeric($arr_data['value'])){
+                                $value = abs($arr_data['value']);
                                 $add_wallet_point_log = [
-                                    'dbname' => 'sky_user',
-                                    'dbtable' => 'wallet_point_log',
+                                    'dbname' => $this->connection,
+                                    'dbtable' => $this->table,
                                     'dbtableid' => '',
                                     'type' => $arr_data['type'],
                                     'item_code' => '',
                                     'value_type' => $value_type,
-                                    'value' => (float)$arr_data['value'],
-                                    'value_before' => (float)$user['wallet_point'],
-                                    'value_after' => (float)($user['wallet_point'] + $arr_data['value']),
-                                    'user_id' => $arr_data['user_id'] ?? '',
+                                    'value' => (double)$value,
+                                    'value_before' => (double)$wallet_point,
+                                    'value_after' => (double)($wallet_point + $value_type * $value),
+                                    'user_id' => $arr_data['user_id'],
                                     'is_status' => 1,
                                     'is_show' => 1,
                                     'lang' => 'vi',
+                                    'content' => input_editor($arr_data['content']),
                                     'created_at' => mongo_time(),
                                     'updated_at' => mongo_time(),
                                 ];
-                                $ok2 = Wallet_Point_Log::insert($add_wallet_point_log);
-                                if($ok2){
+                                $ok = Wallet_Point_Log::insertGetId($add_wallet_point_log);
+                                if($ok){
+                                    $id = mongodb_id($ok);
+                                    $update_log = [
+                                        'dbtableid' => $id
+                                    ];
+                                    Wallet_Point_Log::where('_id', $id)->update($update_log);
                                     $update_user = [
-                                        'wallet_point' => (float)($user['wallet_point'] + $arr_data['value']),
-                                        'wallet_point_total' => (float)($user['wallet_point_total'] + $arr_data['value']),
+                                        'wallet_point' => (double)($wallet_point + $value_type * $value),
                                         'wallet_point_change' => 1
                                     ];
+                                    if($value_type == 1){
+                                        $update_user['wallet_point_total'] = (double)($wallet_point_total + $value);
+                                    }
                                     User::where('_id', $user['_id'])->update($update_user);
                                     $device_token_user = DeviceToken::where('user_id', $user['_id'])->pluck('device_token');
+                                    $template = ($value_type == 1) ? 'addSpointAdmin' : 'minusSpointAdmin';
                                     if($device_token_user){
                                         $target_notic = Config('Api_app').'/firebase/api/messaging';
                                         foreach ($device_token_user as $item){
                                             $data_notic_user = [
                                                 'token' => $item,
-                                                'template' => 'addSpointCustomerRateToUser',
+                                                'template' => $template,
                                                 'arr_replace' => [
                                                     'body' => [
-                                                        'spoint' => number_format($spoint_bonus_customer,0,',','.'),
-                                                        'booking' => $data['booking']['item_code']
+                                                        'value' => formatNumber($value),
+                                                        'created_at' => date('H:i d-m-Y'),
+                                                        'content' => strip_tags(input_editor_decode($arr_data['content']))
                                                     ]
                                                 ],
                                                 'push_data' => [
-                                                    'type' => 'addSpointFromAdmin'
+                                                    'type' => 'adminChangePointCustomer'
                                                 ]
                                             ];
                                             Http::post($target_notic, $data_notic_user)->json();
                                         }
                                     }
+                                    $notif_title = ($value_type == 1) ? 'Cộng điểm' : 'Trừ điểm';
+                                    return response_custom($notif_title.' thành công!');
                                 }
                             }else{
                                 return response_custom('Vui lòng nhập số điểm cộng!', 1);
