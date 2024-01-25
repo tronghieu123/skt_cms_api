@@ -2,11 +2,11 @@
 
 namespace App\Models\Sky\User;
 
+use App\Models\Sky\Partner\History_Wallet_Sky_Status;
 use App\Models\Sky\Payment\Method_Recharge;
 use MongoDB\Laravel\Eloquent\Model;
 
-class Recharge_History extends Model
-{
+class Recharge_History extends Model{
     public $timestamps = false;
     protected $connection = 'sky_payment';
     protected $table = 'recharge_history';
@@ -17,7 +17,7 @@ class Recharge_History extends Model
     ];
 
     public function methodRecharge() {
-        return $this->hasOne(Method_Recharge::class, '_id', 'method');
+        return $this->hasOne(Method_Recharge::class, 'name_action', 'method');
     }
 
     public function user() {
@@ -28,50 +28,44 @@ class Recharge_History extends Model
         if(request()->method() != 'POST'){
             return response_custom('Sai phương thức!', 1, [],405);
         }
-        $data = Recharge_History::where('type', 'user')
-                ->when(request('type') == 'pending' ?? null, function ($query){
-                    $query->where('is_status', 0); // Đợi duyệt
-                })
-                ->when(request('type') == 'approved' ?? null, function ($query){
-                    $query->where('is_status', 1); // Đã duyệt
-                })
-                ->when(request('type') == 'reject' ?? null, function ($query){
-                    $query->where('is_status', 2); // từ chối
-                })
-                ->with('user')
-                ->with('methodRecharge')
-                ->filter()
-                ->orderBy('created_at', 'desc')
-                ->paginate(Config('per_page'), Config('fillable'), 'page', Config('current_page'))
-                ->toArray();
-
+        $data = Recharge_History::with('user')
+            ->with('methodRecharge')
+            ->filter()
+            ->orderBy('created_at', 'desc')
+            ->paginate(Config('per_page'), Config('fillable'), 'page', Config('current_page'))
+            ->toArray();
+        $data['other']['status'] = History_Wallet_Sky_Status::where('is_show', 1)->get(['title','bg_color','text_color','class','value'])->keyBy('value');
         // đếm số lượng các tab
-        $data['other']['counter'] = $this->counter();
+//        $data['other']['counter'] = $this->counter();
 
         return response_pagination($data);
     }
 
-    function counter() {
-        $data['all'] = Recharge_History::filter()->where('type', 'user')->count();
-        $data['pending'] = Recharge_History::filter()->where('type', 'user')->where('is_status', 0)->count();
-        $data['approved'] = Recharge_History::filter()->where('type', 'user')->where('is_status', 1)->count();
-        $data['reject'] = Recharge_History::filter()->where('type', 'user')->where('is_status', 2)->count();
-        return $data;
-    }
+//    function counter() {
+//        $data['all'] = Recharge_History::filter()->count();
+//        $data['pending'] = Recharge_History::filter()->where('is_status', 0)->count();
+//        $data['approved'] = Recharge_History::filter()->where('is_status', 1)->count();
+//        $data['reject'] = Recharge_History::filter()->where('is_status', 2)->count();
+//        return $data;
+//    }
 
-    public static function scopeFilter($query)
-    {
-        $query->when(!empty(request('keyword')) ?? null, function ($query){
+    public static function scopeFilter($query){
+        $query->where('is_status', 1)
+            ->where('is_show', 1)
+            ->where('type', 'user')
+            ->when(!empty(request('keyword')) ?? null, function ($query){
                 $keyword = explode_custom(request('keyword'),' ');
-                $query->whereHas('user', function($q) use($keyword){
-                    if($keyword){
-                        foreach ($keyword as $item){
-                            $q->orWhere('full_name', 'LIKE', '%' . $item . '%');
+                $query->orWhere('item_code', 'LIKE', '%'.request('keyword').'%')
+                    ->orWhereHas('user', function($q) use($keyword){
+                        if($keyword){
+                            foreach ($keyword as $item){
+                                $q->orWhere('full_name', 'LIKE', '%' . $item . '%');
+                            }
                         }
-                    }
-                    $q->orWhere('phone', 'LIKE', '%'.request('keyword').'%')
+                        $q->orWhere('phone', 'LIKE', '%'.request('keyword').'%')
                         ->orWhere('email', 'LIKE', '%'.request('keyword').'%');
-                })->orWhere('item_code', 'LIKE', '%'.request('keyword').'%');
+                    }
+                );
             })
             ->when(!empty(request('date_start')) ?? null, function ($query){
                 $date_start = convert_date_search(request('date_start'));

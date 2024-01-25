@@ -1,341 +1,391 @@
 <?php
 
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Config;
+//use Illuminate\Support\Facades\Cache;
+//use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
+//use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use MongoDB\BSON\ObjectID;
 
-function print_arr($array = array()){
-    echo "<pre>";
-    @print_r($array);
-    echo "</pre>";
-}
 
-function mongodb_id($objectId){
-    $objectId = new ObjectId($objectId);
-    return $objectId->jsonSerialize()['$oid'];
-}
-
-function mongo_time($time = ''){
-    if ($time == '') {
-        $time = time();
-    }
-    return new MongoDB\BSON\UTCDateTime($time * 1000);
-}
-
-function convert_date($date){
-    $date = explode('-', $date);
-    return mongo_time(strtotime($date[2].'-'.$date[1].'-'.$date[0]));
-}
-function convert_date_time($date_time){
-    $arr_date = explode(' ', $date_time);
-    $date = explode('-', $arr_date[0]);
-    return mongo_time(strtotime($date[2].'-'.$date[1].'-'.$date[0].' '.$arr_date[1]));
-}
-function convert_date_search($date){
-    $date = explode('-', $date);
-    return $date[2].'-'.$date[1].'-'.$date[0];
-}
-function parseTimestamp($cursor = array()){
-    foreach ($cursor as $doc) {
-        return (int) round($doc / 1000);
+if (!function_exists('print_arr')) {
+    function print_arr($array = array()){
+        echo "<pre>";
+        @print_r($array);
+        echo "</pre>";
     }
 }
 
-function error_login(){
-    return response()->json([
-        'code' => Response::HTTP_UNAUTHORIZED,
-        'message' => __('UNAUTHORIZED')
-    ]);
+if (!function_exists('mongodb_id')) {
+    function mongodb_id($objectId){
+        $objectId = new ObjectId($objectId);
+        return $objectId->jsonSerialize()['$oid'];
+    }
 }
 
-function response_custom($mess = '', $error = 0, $data = array(), $code = 200){
-    if($error == 1 && $code == 200){
-        $code = 400;
+if (!function_exists('mongo_time')) {
+    function mongo_time($time = ''){
+        if ($time == '') {
+            $time = time();
+        }
+        return new MongoDB\BSON\UTCDateTime($time * 1000);
     }
-    $response = [
-        'error' => $error,
-        'code' => ($code == 200) ? Response::HTTP_OK : $code,
-        'message' => !empty($mess) ? $mess : (($code == 200) ? 'Thành công!' : 'Thất bại!'),
-    ];
-    if(!empty($data)){
-        $response['data'] = $data;
-    }
-    return response()->json($response);
 }
 
-function response_pagination($data = array(), $mess = 'Thành công', $error = 0, $code = 200){
-    if($error == 1 && $code == 200){
-        $code = 400;
+if (!function_exists('convert_date')) {
+    function convert_date($date){
+        $date = explode('-', $date);
+        return mongo_time(strtotime($date[2].'-'.$date[1].'-'.$date[0]));
     }
-    $response = [
-        'error' => $error,
-        'code' => ($code == 200) ? Response::HTTP_OK : $code,
-        'message' => !empty($mess) ? $mess : (($code == 200) ? 'Thành công!' : 'Thất bại!'),
-        'data' => $data['data'] ?? [],
-        'from' => $data['from'] ?? "",
-        'to' => $data['to'] ?? "",
-        'total' => $data['total'] ?? "",
-        'total_page' => $data['last_page'] ?? "",
-        'current_page' => $data['current_page'] ?? "",
-        'per_page' => $data['per_page'] ?? "",
-        'links' => $data['links']
-    ];
-    if(!empty($data['other'])){
-        foreach ($data['other'] as $k => $v){
-            $response[$k] = $v;
+}
+
+if (!function_exists('convert_date_time')) {
+    function convert_date_time($date_time){
+        $arr_date = explode(' ', $date_time);
+        $date = explode('-', $arr_date[0]);
+        return mongo_time(strtotime($date[2].'-'.$date[1].'-'.$date[0].' '.$arr_date[1]));
+    }
+}
+
+if (!function_exists('convert_date_search')) {
+    function convert_date_search($date){
+        $date = explode('-', $date);
+        return $date[2].'-'.$date[1].'-'.$date[0];
+    }
+}
+
+if (!function_exists('parseTimestamp')) {
+    function parseTimestamp($cursor = array()){
+        foreach ($cursor as $doc) {
+            return (int) round($doc / 1000);
         }
     }
-    return response()->json($response);
 }
 
-function input_editor($str){
-    $str = htmlspecialchars($str, ENT_QUOTES);
-    return $str;
+if (!function_exists('error_login')) {
+    function error_login(){
+        return response()->json([
+            'code' => Response::HTTP_UNAUTHORIZED,
+            'message' => __('UNAUTHORIZED')
+        ]);
+    }
 }
 
-function input_editor_decode($str){
-    $str = htmlspecialchars_decode($str, ENT_QUOTES);
-    $str = html_entity_decode($str);
-    return $str;
-}
-
-function string_cut($str, $max_length){
-    if (strlen($str) > $max_length) {
-        $str = substr($str, 0, $max_length);
-        $pos = strrpos($str, " ");
-        if ($pos === false) {
-            return substr($str, 0, $max_length) . "...";
+if (!function_exists('response_custom')) {
+    function response_custom($mess = '', $error = 0, $data = array(), $code = 200){
+        if($error == 1 && $code == 200){
+            $code = 400;
         }
-        return substr($str, 0, $pos) . "...";
-    } else {
+        $response = [
+            'error' => $error,
+            'code' => ($code == 200) ? Response::HTTP_OK : $code,
+            'message' => !empty($mess) ? $mess : (($code == 200) ? 'Thành công!' : 'Thất bại!'),
+        ];
+        if(!empty($data)){
+            $response['data'] = $data;
+        }
+        return response()->json($response);
+    }
+}
+
+if (!function_exists('response_pagination')) {
+    function response_pagination($data = array(), $mess = 'Thành công', $error = 0, $code = 200){
+        if($error == 1 && $code == 200){
+            $code = 400;
+        }
+        $response = [
+            'error' => $error,
+            'code' => ($code == 200) ? Response::HTTP_OK : $code,
+            'message' => !empty($mess) ? $mess : (($code == 200) ? 'Thành công!' : 'Thất bại!'),
+            'data' => $data['data'] ?? [],
+            'from' => $data['from'] ?? "",
+            'to' => $data['to'] ?? "",
+            'total' => $data['total'] ?? "",
+            'total_page' => $data['last_page'] ?? "",
+            'current_page' => $data['current_page'] ?? "",
+            'per_page' => $data['per_page'] ?? "",
+            'links' => $data['links']
+        ];
+        if(!empty($data['other'])){
+            foreach ($data['other'] as $k => $v){
+                $response[$k] = $v;
+            }
+        }
+        return response()->json($response);
+    }
+}
+
+if (!function_exists('input_editor')) {
+    function input_editor($str){
+        $str = htmlspecialchars($str, ENT_QUOTES);
         return $str;
     }
 }
 
-function short($str, $max_length = 200){
-    $str = input_editor_decode($str);
-    $str = strip_tags($str);
-    $str = string_cut($str, $max_length);
-    return $str;
+if (!function_exists('input_editor_decode')) {
+    function input_editor_decode($str){
+        $str = htmlspecialchars_decode($str, ENT_QUOTES);
+        $str = html_entity_decode($str);
+        return $str;
+    }
 }
 
-function vn_str_filter($str){
-    $unicode = array(
-        'a' => 'á|à|ả|ã|ạ|ă|ắ|ằ|ẳ|ẵ|ặ|â|ấ|ầ|ẩ|ẫ|ậ',
-        'd' => 'đ',
-        'e' => 'é|è|ẻ|ẽ|ẹ|ê|ế|ề|ể|ễ|ệ',
-        'i' => 'í|ì|ỉ|ĩ|ị',
-        'o' => 'ó|ò|ỏ|õ|ọ|ô|ố|ồ|ổ|ỗ|ộ|ơ|ớ|ờ|ở|ỡ|ợ',
-        'u' => 'ú|ù|ủ|ĩ|ụ|ư|ứ|ừ|ử|ữ|ự',
-        'y' => 'ý|ỳ|ỷ|ỹ|ỵ',
-        'A' => 'Á|À|Ả|Ã|Ạ|Ă|Ắ|Ằ|Ẳ|Ẵ|Ặ|Â|Ấ|Ầ|Ẩ|Ẫ|Ậ',
-        'D' => 'Đ',
-        'E' => 'É|È|Ẻ|Ẽ|Ẹ|Ê|Ế|Ề|Ể|Ễ|Ệ',
-        'I' => 'Í|Ì|Ỉ|Ĩ|Ị',
-        'O' => 'Ó|Ò|Ỏ|Õ|Ọ|Ô|Ố|Ồ|Ổ|Ỗ|Ộ|Ơ|Ớ|Ờ|Ở|Ỡ|Ợ',
-        'U' => 'Ú|Ù|Ủ|Ĩ|Ụ|Ư|Ứ|Ừ|Ử|Ữ|Ự',
-        'Y' => 'Ý|Ỳ|Ỷ|Ỹ|Ỵ',
-    );
-
-    foreach ($unicode as $nonUnicode => $uni) {
-        $str = preg_replace("/($uni)/i", $nonUnicode, $str);
+if (!function_exists('string_cut')) {
+    function string_cut($str, $max_length){
+        if (strlen($str) > $max_length) {
+            $str = substr($str, 0, $max_length);
+            $pos = strrpos($str, " ");
+            if ($pos === false) {
+                return substr($str, 0, $max_length) . "...";
+            }
+            return substr($str, 0, $pos) . "...";
+        } else {
+            return $str;
+        }
     }
-    return $str;
 }
 
-function str_2_url($str){
-    $lang_allow = array('cn', 'ko');
-    $lang_cur   = config('ims.cur.lang');
-    $str        = vn_str_filter($str);
-    if (!in_array($lang_cur, $lang_allow)) {
-        $str = preg_replace('/[^a-zA-Z0-9\-_ ]/', '', $str);
+if (!function_exists('short')) {
+    function short($str, $max_length = 200){
+        $str = input_editor_decode($str);
+        $str = strip_tags($str);
+        $str = string_cut($str, $max_length);
+        return $str;
     }
-    $str = preg_replace('/[ ]/', '-', $str);
-    while (strlen(strstr($str, "-_")) > 0) {
-        $str = str_replace('-_', '-', $str);
-    }
-    while (strlen(strstr($str, "_-")) > 0) {
-        $str = str_replace('_-', '_', $str);
-    }
-    while (strlen(strstr($str, "__")) > 0) {
-        $str = str_replace('__', '_', $str);
-    }
-    while (strlen(strstr($str, "--")) > 0) {
-        $str = str_replace('--', '-', $str);
-    }
-    $str = str_replace(array('(-)', '(_)', '()', '(-', '(_', '-)', '_)', '(', ')', ';'), '', '(' . $str . ')');
-    $str = strtolower($str);
-    $str = ($str == "") ? time() : $str;
-
-    return $str;
 }
 
-function random_str($len = 5, $type = ''){
-    $u = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    $l = 'abcdefghijklmnopqrstuvwxyz';
-    $n = '0123456789';
-    $s = $u . $l . $n;
-    switch ($type) {
-        case 'n':
-            $s = $n;
-            break;
-        case 'l':
-            $s = $l;
-            break;
-        case 'u':
-            $s = $u;
-            break;
-        case 'un':
-            $s = $u . $n;
-            break;
-        case 'ul':
-            $s = $u . $l;
-            break;
-        case 'ln':
-            $s = $l . $n;
-            break;
+if (!function_exists('vn_str_filter')) {
+    function vn_str_filter($str){
+        $unicode = array(
+            'a' => 'á|à|ả|ã|ạ|ă|ắ|ằ|ẳ|ẵ|ặ|â|ấ|ầ|ẩ|ẫ|ậ',
+            'd' => 'đ',
+            'e' => 'é|è|ẻ|ẽ|ẹ|ê|ế|ề|ể|ễ|ệ',
+            'i' => 'í|ì|ỉ|ĩ|ị',
+            'o' => 'ó|ò|ỏ|õ|ọ|ô|ố|ồ|ổ|ỗ|ộ|ơ|ớ|ờ|ở|ỡ|ợ',
+            'u' => 'ú|ù|ủ|ĩ|ụ|ư|ứ|ừ|ử|ữ|ự',
+            'y' => 'ý|ỳ|ỷ|ỹ|ỵ',
+            'A' => 'Á|À|Ả|Ã|Ạ|Ă|Ắ|Ằ|Ẳ|Ẵ|Ặ|Â|Ấ|Ầ|Ẩ|Ẫ|Ậ',
+            'D' => 'Đ',
+            'E' => 'É|È|Ẻ|Ẽ|Ẹ|Ê|Ế|Ề|Ể|Ễ|Ệ',
+            'I' => 'Í|Ì|Ỉ|Ĩ|Ị',
+            'O' => 'Ó|Ò|Ỏ|Õ|Ọ|Ô|Ố|Ồ|Ổ|Ỗ|Ộ|Ơ|Ớ|Ờ|Ở|Ỡ|Ợ',
+            'U' => 'Ú|Ù|Ủ|Ĩ|Ụ|Ư|Ứ|Ừ|Ử|Ữ|Ự',
+            'Y' => 'Ý|Ỳ|Ỷ|Ỹ|Ỵ',
+        );
+
+        foreach ($unicode as $nonUnicode => $uni) {
+            $str = preg_replace("/($uni)/i", $nonUnicode, $str);
+        }
+        return $str;
     }
-    ;
-    $randomString = '';
-    for ($i = 0; $i < $len; $i++) {
-        $randomString .= substr($s, (rand() % (strlen($s))), 1);
-    }
-    return $randomString;
 }
 
-function random_str_db($db_info, $len, $type, $code = ''){
-    $database = $db_info['database'] ?? 'sky_cms';
-    $db = DB::connection($database);
-    if(empty($db_info['table']) || empty($db_info['field'])){
-        return '';
+if (!function_exists('str_2_url')) {
+    function str_2_url($str){
+        $lang_allow = array('cn', 'ko');
+        $lang_cur   = config('ims.cur.lang');
+        $str        = vn_str_filter($str);
+        if (!in_array($lang_cur, $lang_allow)) {
+            $str = preg_replace('/[^a-zA-Z0-9\-_ ]/', '', $str);
+        }
+        $str = preg_replace('/[ ]/', '-', $str);
+        while (strlen(strstr($str, "-_")) > 0) {
+            $str = str_replace('-_', '-', $str);
+        }
+        while (strlen(strstr($str, "_-")) > 0) {
+            $str = str_replace('_-', '_', $str);
+        }
+        while (strlen(strstr($str, "__")) > 0) {
+            $str = str_replace('__', '_', $str);
+        }
+        while (strlen(strstr($str, "--")) > 0) {
+            $str = str_replace('--', '-', $str);
+        }
+        $str = str_replace(array('(-)', '(_)', '()', '(-', '(_', '-)', '_)', '(', ')', ';'), '', '(' . $str . ')');
+        $str = strtolower($str);
+        $str = ($str == "") ? time() : $str;
+
+        return $str;
     }
-    if($code){
-        $check_exist = $db->collection($db_info['table'])->where($db_info['field'], $code)->value($db_info['field']);
-        if($check_exist){
+}
+
+if (!function_exists('random_str')) {
+    function random_str($len = 5, $type = ''){
+        $u = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        $l = 'abcdefghijklmnopqrstuvwxyz';
+        $n = '0123456789';
+        $s = $u . $l . $n;
+        switch ($type) {
+            case 'n':
+                $s = $n;
+                break;
+            case 'l':
+                $s = $l;
+                break;
+            case 'u':
+                $s = $u;
+                break;
+            case 'un':
+                $s = $u . $n;
+                break;
+            case 'ul':
+                $s = $u . $l;
+                break;
+            case 'ln':
+                $s = $l . $n;
+                break;
+        }
+        ;
+        $randomString = '';
+        for ($i = 0; $i < $len; $i++) {
+            $randomString .= substr($s, (rand() % (strlen($s))), 1);
+        }
+        return $randomString;
+    }
+}
+
+if (!function_exists('random_str_db')) {
+    function random_str_db($db_info, $len, $type, $code = ''){
+        $database = $db_info['database'] ?? 'sky_cms';
+        $db = DB::connection($database);
+        if(empty($db_info['table']) || empty($db_info['field'])){
+            return '';
+        }
+        if($code){
+            $check_exist = $db->collection($db_info['table'])->where($db_info['field'], $code)->value($db_info['field']);
+            if($check_exist){
+                $code = random_str($len, $type);
+                random_str_db($db_info, $len, $type, $code);
+            }
+        }else{
             $code = random_str($len, $type);
-            random_str_db($db_info, $len, $type, $code);
+            $check_exist = $db->collection($db_info['table'])->where($db_info['field'], $code)->value($db_info['field']);
+            if($check_exist){
+                random_str_db($db_info, $len, $type, $code);
+            }
         }
-    }else{
-        $code = random_str($len, $type);
-        $check_exist = $db->collection($db_info['table'])->where($db_info['field'], $code)->value($db_info['field']);
-        if($check_exist){
-            random_str_db($db_info, $len, $type, $code);
-        }
-    }
-    return $code;
-}
-
-function get_time($time_ago){
-    $cur_time     = time();
-    $time_elapsed = $cur_time - $time_ago;
-    $seconds      = $time_elapsed;
-    $minutes      = round($time_elapsed / 60);
-    $hours        = round($time_elapsed / 3600);
-    $days         = round($time_elapsed / 86400);
-    $weeks        = round($time_elapsed / 604800);
-    $months       = round($time_elapsed / 2600640);
-    $years        = round($time_elapsed / 31207680);
-    // Seconds
-    if ($seconds <= 60) {
-        return " Vừa xong";
-    }
-    //Minutes
-    else if ($minutes <= 60) {
-        return "$minutes phút trước";
-    }
-    //Hours
-    else if ($hours <= 24) {
-        return "$hours giờ trước";
-    }
-    //Days
-    else if ($days <= 7) {
-        return "$days ngày trước";
-    }
-    //Weeks
-    else if ($weeks <= 4.3) {
-        return "$weeks tuần trước";
-    }
-    //Months
-    else if ($months <= 12) {
-        return "$months tháng trước";
-    }
-    //Years
-    else {
-        return "$years năm trước";
+        return $code;
     }
 }
 
-function rmkdir($dir = "", $chmod = 0777, $path_folder = "uploads"){
-    global $ims;
+if (!function_exists('get_time')) {
+    function get_time($time_ago){
+        $cur_time     = time();
+        $time_elapsed = $cur_time - $time_ago;
+        $seconds      = $time_elapsed;
+        $minutes      = round($time_elapsed / 60);
+        $hours        = round($time_elapsed / 3600);
+        $days         = round($time_elapsed / 86400);
+        $weeks        = round($time_elapsed / 604800);
+        $months       = round($time_elapsed / 2600640);
+        $years        = round($time_elapsed / 31207680);
+        // Seconds
+        if ($seconds <= 60) {
+            return " Vừa xong";
+        }
+        //Minutes
+        else if ($minutes <= 60) {
+            return "$minutes phút trước";
+        }
+        //Hours
+        else if ($hours <= 24) {
+            return "$hours giờ trước";
+        }
+        //Days
+        else if ($days <= 7) {
+            return "$days ngày trước";
+        }
+        //Weeks
+        else if ($weeks <= 4.3) {
+            return "$weeks tuần trước";
+        }
+        //Months
+        else if ($months <= 12) {
+            return "$months tháng trước";
+        }
+        //Years
+        else {
+            return "$years năm trước";
+        }
+    }
+}
 
-    $chmod     = ($chmod == 'auto') ? 0777 : $chmod;
-    $arr_allow = array("uploads", "thumbs", "thumbs");
+if (!function_exists('rmkdir')) {
+    function rmkdir($dir = "", $chmod = 0777, $path_folder = "uploads"){
+        global $ims;
 
-    $path_folder = (in_array($path_folder, $arr_allow)) ? $path_folder : 'uploads';
-    $path        = $ims->conf["rootpath_web"] . $path_folder;
-    $path        = rtrim(preg_replace(array("/\\\\/", "/\/{2,}/"), "/", $path), "/");
+        $chmod     = ($chmod == 'auto') ? 0777 : $chmod;
+        $arr_allow = array("uploads", "thumbs", "thumbs");
 
-    if (is_dir($path . '/' . $dir) && file_exists($path . '/' . $dir)) {
+        $path_folder = (in_array($path_folder, $arr_allow)) ? $path_folder : 'uploads';
+        $path        = $ims->conf["rootpath_web"] . $path_folder;
+        $path        = rtrim(preg_replace(array("/\\\\/", "/\/{2,}/"), "/", $path), "/");
+
+        if (is_dir($path . '/' . $dir) && file_exists($path . '/' . $dir)) {
+            return true;
+        }
+
+        $path_thumbs = $path . '/' . $dir;
+        $path_thumbs = rtrim(preg_replace(array("/\\\\/", "/\/{2,}/"), "/", $path_thumbs), "/");
+
+        $oldumask = umask(0);
+        if ($path && !file_exists($path)) {
+            mkdir($path, $chmod, true); // or even 01777 so you get the sticky bit set
+        }
+        if ($path_thumbs && !file_exists($path_thumbs)) {
+            mkdir($path_thumbs, $chmod, true);
+            //mkdir($path_thumbs, $chmod, true) or die("$path_thumbs cannot be found"); // or even 01777 so you get the sticky bit set
+        }
+        umask($oldumask);
+
         return true;
     }
-
-    $path_thumbs = $path . '/' . $dir;
-    $path_thumbs = rtrim(preg_replace(array("/\\\\/", "/\/{2,}/"), "/", $path_thumbs), "/");
-
-    $oldumask = umask(0);
-    if ($path && !file_exists($path)) {
-        mkdir($path, $chmod, true); // or even 01777 so you get the sticky bit set
-    }
-    if ($path_thumbs && !file_exists($path_thumbs)) {
-        mkdir($path_thumbs, $chmod, true);
-        //mkdir($path_thumbs, $chmod, true) or die("$path_thumbs cannot be found"); // or even 01777 so you get the sticky bit set
-    }
-    umask($oldumask);
-
-    return true;
 }
 
-function hex2rgb($hexStr, $returnAsString = false, $seperator = ','){
-    $hexStr   = preg_replace("/[^0-9A-Fa-f]/", '', $hexStr); // Gets a proper hex string
-    $rgbArray = array();
-    if (strlen($hexStr) == 6) { //If a proper hex code, convert using bitwise operation. No overhead... faster
-        $colorVal          = hexdec($hexStr);
-        $rgbArray['red']   = 0xFF & ($colorVal >> 0x10);
-        $rgbArray['green'] = 0xFF & ($colorVal >> 0x8);
-        $rgbArray['blue']  = 0xFF & $colorVal;
-    } elseif (strlen($hexStr) == 3) { //if shorthand notation, need some string manipulations
-        $rgbArray['red']   = hexdec(str_repeat(substr($hexStr, 0, 1), 2));
-        $rgbArray['green'] = hexdec(str_repeat(substr($hexStr, 1, 1), 2));
-        $rgbArray['blue']  = hexdec(str_repeat(substr($hexStr, 2, 1), 2));
-    } else {
-        return false; //Invalid hex color code
+if (!function_exists('hex2rgb')) {
+    function hex2rgb($hexStr, $returnAsString = false, $seperator = ','){
+        $hexStr   = preg_replace("/[^0-9A-Fa-f]/", '', $hexStr); // Gets a proper hex string
+        $rgbArray = array();
+        if (strlen($hexStr) == 6) { //If a proper hex code, convert using bitwise operation. No overhead... faster
+            $colorVal          = hexdec($hexStr);
+            $rgbArray['red']   = 0xFF & ($colorVal >> 0x10);
+            $rgbArray['green'] = 0xFF & ($colorVal >> 0x8);
+            $rgbArray['blue']  = 0xFF & $colorVal;
+        } elseif (strlen($hexStr) == 3) { //if shorthand notation, need some string manipulations
+            $rgbArray['red']   = hexdec(str_repeat(substr($hexStr, 0, 1), 2));
+            $rgbArray['green'] = hexdec(str_repeat(substr($hexStr, 1, 1), 2));
+            $rgbArray['blue']  = hexdec(str_repeat(substr($hexStr, 2, 1), 2));
+        } else {
+            return false; //Invalid hex color code
+        }
+        return $returnAsString ? implode($seperator, $rgbArray) : $rgbArray; // returns the rgb string or the associative array
     }
-    return $returnAsString ? implode($seperator, $rgbArray) : $rgbArray; // returns the rgb string or the associative array
 }
 
 /*
  * RGB-Colorcodes(i.e: 255 0 255) to HEX-Colorcodes (i.e: FF00FF)
  */
 
-function rgb2hex($rgb){
-    if (!is_array($rgb) || count($rgb) != 3) {
-        echo "Argument must be an array with 3 integer elements";
-        return false;
-    }
-    for ($i = 0; $i < count($rgb); $i++) {
-        if (strlen($hex[$i] = dechex($rgb[$i])) == 1) {
-            $hex[$i] = "0" . $hex[$i];
+if (!function_exists('rgb2hex')) {
+    function rgb2hex($rgb){
+        if (!is_array($rgb) || count($rgb) != 3) {
+            echo "Argument must be an array with 3 integer elements";
+            return false;
         }
+        for ($i = 0; $i < count($rgb); $i++) {
+            if (strlen($hex[$i] = dechex($rgb[$i])) == 1) {
+                $hex[$i] = "0" . $hex[$i];
+            }
+        }
+        return implode('', $hex);
     }
-    return implode('', $hex);
 }
 
-function ims_json_encode(&$value, $default = ''){
-    return ((!empty($value)) ? json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) : $default);
+if (!function_exists('ims_json_encode')) {
+    function ims_json_encode(&$value, $default = ''){
+        return ((!empty($value)) ? json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) : $default);
+    }
 }
 
 function ims_json_decode(&$value, $default = ''){
@@ -783,11 +833,11 @@ function formatData($data, $arr_convert = [], $replace_data = []){
                     break;
                 case 'created_at':
                 case 'updated_at':
-                    $data[$k][$k1] = parseTimestamp($v);
+                    $data[$k][$k1] = !empty($v) ? parseTimestamp($v) : '';
                     break;
                 default:
                     if (!empty($arr_convert['date']) && in_array($k1, $arr_convert['date']) && !is_string($v)) {
-                        $data[$k][$k1] = parseTimestamp($v); // Chuyển kiểu dữ liệu về timestamp
+                        $data[$k][$k1] = !empty($v) ? parseTimestamp($v) : ''; // Chuyển kiểu dữ liệu về timestamp
                     }
                     if (!empty($arr_convert['comma']) && in_array($k1, $arr_convert['comma']) && is_string($v)) {
                         $data[$k][$k1] = explode(',', $v); // Chuyển kiểu về array, với loại lưu select multi

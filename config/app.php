@@ -58,9 +58,9 @@ return [
     'url' => env('APP_URL', 'http://localhost'),
 
     'asset_url' => env('ASSET_URL'),
-    
+
     'Api_app' => env('Api_app'),
-    
+
     'Api_link' => env('Api_link'),
     /*
     |--------------------------------------------------------------------------
@@ -175,6 +175,7 @@ return [
         /*
         * Custom Service Providers...
         */
+        App\Providers\GlobalFunctionsServiceProvider::class,
     ])->toArray(),
 
     /*

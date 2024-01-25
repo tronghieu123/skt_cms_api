@@ -2,6 +2,7 @@
 
 namespace App\Models\Booking\Driver;
 
+use App\Models\Sky\Partner\History_Wallet_Sky_Status;
 use App\Models\Sky\Payment\Method_Recharge;
 use MongoDB\Laravel\Eloquent\Model;
 
@@ -17,7 +18,7 @@ class Recharge_History extends Model
     ];
 
     public function methodRecharge() {
-        return $this->hasOne(Method_Recharge::class, '_id', 'method');
+        return $this->hasOne(Method_Recharge::class, 'name_action', 'method');
     }
 
     public function driver() {
@@ -29,17 +30,7 @@ class Recharge_History extends Model
             return response_custom('Sai phương thức!', 1, [],405);
         }
 
-        $data = Recharge_History::where('type', 'driver')
-            ->when(request('type') == 'pending' ?? null, function ($query){
-                $query->where('is_status', 0); // Đợi duyệt
-            })
-            ->when(request('type') == 'approved' ?? null, function ($query){
-                $query->where('is_status', 1); // Đã duyệt
-            })
-            ->when(request('type') == 'reject' ?? null, function ($query){
-                $query->where('is_status', 2); // từ chối
-            })
-            ->with(['driver' => function ($query) {
+        $data = Recharge_History::with(['driver' => function ($query) {
                 $query->with(['partner' => function ($partner){
                     $partner->select('phone', 'full_name', 'email');
                 }])
@@ -54,23 +45,26 @@ class Recharge_History extends Model
             ->orderBy('created_at', 'desc')
             ->paginate(Config('per_page'), Config('fillable'), 'page', Config('current_page'))
             ->toArray();
-
+        $data['other']['status'] = History_Wallet_Sky_Status::where('is_show', 1)->get(['title','bg_color','text_color','class','value'])->keyBy('value');
         // đếm số lượng các tab
-        $data['other']['counter'] = $this->counter();
+//        $data['other']['counter'] = $this->counter();
 
         return response_pagination($data);
     }
 
-    function counter() {
-        $data['all'] = Recharge_History::filter()->where('type', 'driver')->count();
-        $data['pending'] = Recharge_History::filter()->where('type', 'driver')->where('is_status', 0)->count();
-        $data['approved'] = Recharge_History::filter()->where('type', 'driver')->where('is_status', 1)->count();
-        $data['reject'] = Recharge_History::filter()->where('type', 'driver')->where('is_status', 2)->count();
-        return $data;
-    }
+//    function counter() {
+//        $data['all'] = Recharge_History::filter()->where('type', 'driver')->count();
+//        $data['pending'] = Recharge_History::filter()->where('type', 'driver')->where('is_status', 0)->count();
+//        $data['approved'] = Recharge_History::filter()->where('type', 'driver')->where('is_status', 1)->count();
+//        $data['reject'] = Recharge_History::filter()->where('type', 'driver')->where('is_status', 2)->count();
+//        return $data;
+//    }
 
     public static function scopeFilter($query){
-        $query->when(!empty(request('keyword')) ?? null, function ($query){
+        $query->where('type', 'driver')
+            ->where('is_show', 1)
+            ->where('is_status', 1)
+            ->when(!empty(request('keyword')) ?? null, function ($query){
                 $keyword = explode_custom(request('keyword'),' ');
                 $query->whereHas('driver.partner', function($q) use($keyword) {
                     if($keyword){

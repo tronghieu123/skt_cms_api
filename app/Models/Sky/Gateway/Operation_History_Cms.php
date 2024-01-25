@@ -4,11 +4,10 @@ namespace App\Models\Sky\Gateway;
 
 use MongoDB\Laravel\Eloquent\Model;
 
-class Operation_History extends Model
-{
+class Operation_History_Cms extends Model{
     public $timestamps = false;
     protected $connection = 'sky_gateway';
-    protected $table = 'operation_history';
+    protected $table = 'operation_history_cms';
     protected $casts = [
         'created_at' => 'timestamp',
     ];

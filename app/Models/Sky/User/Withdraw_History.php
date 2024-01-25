@@ -2,6 +2,8 @@
 
 namespace App\Models\Sky\User;
 
+use App\Models\Sky\Partner\History_Wallet_Sky_Status;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use MongoDB\Laravel\Eloquent\Model;
 
@@ -9,21 +11,19 @@ class Withdraw_History extends Model{
     public $timestamps = false;
     protected $connection = 'sky_payment';
     protected $table = 'withdraw_history';
-
     protected $casts = [
         'created_at' => 'timestamp',
         'updated_at' => 'timestamp',
     ];
 
-    public function user() {
+    function user() {
         return $this->hasOne(User::class, '_id', 'partner_id');
     }
 
-    public function getListWithdrawHistory(){
+    function getListWithdrawHistory(){
         if(request()->method() != 'POST'){
             return response_custom('Sai phương thức!', 1, [],405);
         }
-
         $data = Withdraw_History::when(request('type') == 'pending' ?? null, function ($query){
                 $query->where('is_status', 0); // Đợi duyệt
             })
@@ -38,7 +38,7 @@ class Withdraw_History extends Model{
             ->orderBy('created_at', 'desc')
             ->paginate(Config('per_page'), Config('fillable'), 'page', Config('current_page'))
             ->toArray();
-
+        $data['other']['status'] = History_Wallet_Sky_Status::where('is_show', 1)->get(['title','bg_color','text_color','class','value'])->keyBy('value');
         $data['other']['counter'] = $this->counter();
 
         return response_pagination($data);
@@ -52,20 +52,31 @@ class Withdraw_History extends Model{
         return $data;
     }
 
-    public static function scopeFilter($query){
+    function scopeFilter($query){
         $query->where('type', 'user')
             ->where('is_show', 1)
             ->when(!empty(request('keyword')) ?? null, function ($query){
                 $keyword = explode_custom(request('keyword'),' ');
-                $query->whereHas('user', function($q) use($keyword) {
-                    if($keyword){
-                        foreach ($keyword as $item){
-                            $q->orWhere('full_name', 'LIKE', '%' . $item . '%');
+                $query->orWhere('item_code', 'LIKE', '%' .request('keyword') . '%')
+                    ->orWhere('account_number', 'LIKE', '%' .request('keyword') . '%')
+                    ->when($keyword ?? null, function($q) use($keyword){
+                        if($keyword){
+                            foreach ($keyword as $item){
+                                $q->orWhere('bank_name', 'LIKE', '%' .$item. '%')
+                                    ->orWhere('account_fullname', 'LIKE', '%' .$item. '%');
+                            }
                         }
+                    })
+                    ->orWhereHas('user', function($q) use($keyword) {
+                        if($keyword){
+                            foreach ($keyword as $item){
+                                $q->orWhere('full_name', 'LIKE', '%' . $item . '%');
+                            }
+                        }
+                        $q->orWhere('phone', 'LIKE', '%'.request('keyword').'%')
+                            ->orWhere('email', 'LIKE', '%'.request('keyword').'%');
                     }
-                    $q->orWhere('phone', 'LIKE', '%'.request('keyword').'%')
-                        ->orWhere('email', 'LIKE', '%'.request('keyword').'%');
-                })->orWhere('item_code', 'LIKE', '%' .request('keyword') . '%');
+                );
             })
             ->when(!empty(request('date_start')) ?? null, function ($query){
                 $date_start = convert_date_search(request('date_start'));
@@ -125,6 +136,10 @@ class Withdraw_History extends Model{
                                         ];
                                         $ok1 = Wallet_Cash_Log::insert($wallet_cash_log);
                                         if($ok1){
+                                            $update_wallet_cash_log_old = [
+                                                'is_status' => 1
+                                            ];
+                                            $ok2 = Wallet_Cash_Log::where('_id', $withdraw['wallet_id_log'])->update($update_wallet_cash_log_old);
                                             $update_user = [
                                                 'wallet_cash' => (double)($wallet_cash + $withdraw['value'])
                                             ];
@@ -145,8 +160,14 @@ class Withdraw_History extends Model{
                                 ];
                                 $ok = Withdraw_History::where('_id', request('item'))->update($accept);
                                 if($ok){
-                                    $this->sendNotificationWithdraw($withdraw);
-                                    return response_custom('Duyệt rút tiền thành công!');
+                                    $update_wallet_cash_log = [
+                                        'is_status' => 1
+                                    ];
+                                    $ok1 = Wallet_Cash_Log::where('_id', $withdraw['wallet_id_log'])->update($update_wallet_cash_log);
+                                    if($ok1){
+                                        $this->sendNotificationWithdraw($withdraw);
+                                        return response_custom('Duyệt rút tiền thành công!');
+                                    }
                                 }
                                 break;
                         }

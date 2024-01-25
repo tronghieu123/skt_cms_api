@@ -24,17 +24,17 @@ class Wallet_Point_Log extends Model{
         if(request()->method() != 'POST'){
             return response_custom('Sai phương thức!', 1, [],405);
         }
-        $data = Wallet_Point_Log::filter()
-            ->with('user_info')
+        $data = Wallet_Point_Log::with('user_info')
+            ->filter()
             ->orderBy('created_at', 'desc')
             ->paginate(Config('per_page'), Config('fillable'), 'page', Config('current_page'))
             ->toArray();
         $data['other']['type'] = Wallet_Point_Type::get(['title','bg_color','text_color','class','name_action','description'])->keyBy('name_action');
         $data['other']['status'] = Wallet_Point_Status::get(['title','bg_color','text_color','class','value'])->keyBy('value');
-        $data['other']['minus_total'] = Wallet_Point_Log::filter()->where('value_type', -1)->where('is_status', 1)->sum('value');
-        $data['other']['add_total'] = Wallet_Point_Log::filter()->where('value_type', 1)->where('is_status', 1)->sum('value');
+        $data['other']['minus_total'] = Wallet_Point_Log::filter()->where('value_type', -1)->sum('value');
+        $data['other']['add_total'] = Wallet_Point_Log::filter()->where('value_type', 1)->sum('value');
 
-        $arr_replace_root = ['bank_name','method','created_at','item_code'];
+        $arr_replace_root = ['bank_name','method','created_at','item_code','content'];
         if(!empty($data['data'])){
             foreach ($data['data'] as $k => $v){
                 $transaction_info = DB::connection($v['dbname'])->collection($v['dbtable'])->where('_id', $v['dbtableid'])->first();
@@ -75,7 +75,9 @@ class Wallet_Point_Log extends Model{
             })
             ->when(!empty(request('item')) ?? null, function ($query){
                 $query->where('user_id', request('item'));
-            });
+            })
+            ->where('is_show', 1)
+            ->where('is_status', 1);
     }
 
     // Thêm điểm user

@@ -78,15 +78,15 @@ class Driver extends Model
     public static function scopeFilter($query)
     {
         $query->when(!empty(request('keyword')) ?? null, function ($q){
-            $keyword = explode_custom(request('keyword'), ' ');
-            if($keyword){
-                foreach ($keyword as $item){
-                    $q->orWhere('full_name', 'LIKE', '%'.$item.'%');
+                $keyword = explode_custom(request('keyword'), ' ');
+                if($keyword){
+                    foreach ($keyword as $item){
+                        $q->orWhere('full_name', 'LIKE', '%'.$item.'%');
+                    }
                 }
-            }
-            $q->orWhere('phone', 'LIKE', '%'.request('keyword').'%')
+                $q->orWhere('phone', 'LIKE', '%'.request('keyword').'%')
                 ->orWhere('email', 'LIKE', '%'.request('keyword').'%');
-        })
+            })
             ->when(!empty(request('date_start')) ?? null, function ($query){
                 $date_start = convert_date_search(request('date_start'));
                 $query->whereDate("created_at", ">=", $date_start);
@@ -416,10 +416,8 @@ class Driver extends Model
                     $contract_status = 1;
                 }
             }
-            $driver_contract = [
-                'contract' => color_status($contract_status)
-            ];
-            $data['approve'] = array_merge($data['approve'], $driver_contract);
+            $data['approve']['contract'] = color_status($contract_status);
+
             return response_custom('',0, $data);
         }else{
             return response_custom('Không tìm thấy tài xế!',1);
@@ -445,6 +443,7 @@ class Driver extends Model
 
                 $ok = 0;
                 $info = [];
+                $info['driver_id'] = request('item');
                 $info['identification'] = !empty($arr_data['identification']) ? $arr_data['identification'] : '';
                 if(!empty($arr_data['birthday'])){
                     $info['birthday'] = convert_date($arr_data['birthday']);
@@ -494,15 +493,15 @@ class Driver extends Model
                 }
                 $info['updated_at'] = mongo_time();
                 if(!empty($info)){
-                    $ok = 1;
                     if($check_info){
-                        Driver_Info::where('driver_id', request('item'))->update($info);
+                        unset($info['driver_id']);
+                        $ok = Driver_Info::where('driver_id', request('item'))->update($info);
                     }else{
                         $info['created_at'] = mongo_time();
-                        Driver_Info::insert($info);
+                        $ok = Driver_Info::insert($info);
                     }
                 }
-                if($ok == 1){
+                if($ok){
                     return response_custom('Cập nhật tài xế thành công!');
                 }else{
                     return response_custom('Cập nhật tài xế thất bại!',1);

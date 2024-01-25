@@ -27,7 +27,6 @@ class Driver_Info extends Model
 //        'health_certificate_picture' => jsonToArray::class,
         'vehicle_license_plates_picture' => jsonToArray::class
     ];
-    protected $hidden = ['driver_id'];
     protected $with = ['vehicle_brand_info'];
 
     public function vehicle_brand_info() {

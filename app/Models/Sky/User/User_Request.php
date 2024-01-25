@@ -5,12 +5,10 @@ namespace App\Models\Sky\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Contracts\Validation\Validator;
-use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\DB;
 
-class UserRequest extends FormRequest
+class User_Request extends FormRequest
 {
     protected $connection = 'sky_user';
     protected $table = 'user';

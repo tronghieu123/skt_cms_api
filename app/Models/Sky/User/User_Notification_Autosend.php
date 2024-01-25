@@ -2,7 +2,6 @@
 
 namespace App\Models\Sky\User;
 use MongoDB\Laravel\Eloquent\Model;
-//use App\Models\CustomCasts\jsonToArray;
 
 class User_Notification_Autosend extends Model
 {

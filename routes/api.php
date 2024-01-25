@@ -8,6 +8,17 @@ use Illuminate\Support\Facades\Route;
 
 $namespace = 'App\\Http\\Controllers';
 
+Route::get('/getToken/{type?}', function(Request $request, $type = ''){    
+    switch ($type) {
+        case 'driver':
+            return (new App\Http\Token)->getToken('', '65701f6ca83d1baee4009d8f');
+            break;        
+        default:
+            return (new App\Http\Token)->getToken('', '656d9c5f8a8c8a138e015b01');
+            break;
+    }
+});
+
 Route::post('/login', 'App\\Http\\Controllers\\AuthController@login')->name('login');
 
 Route::middleware('auth:sanctum')->get('api/user', function (Request $request) {
@@ -22,9 +33,7 @@ Route::prefix('api/v1')->group(function () {
         'province' => ProvinceController::class,
         'district' => DistrictController::class,
         'ward' => WardController::class,
-    ]);
-
-    
+    ]);    
 });
 
 Route::group(
