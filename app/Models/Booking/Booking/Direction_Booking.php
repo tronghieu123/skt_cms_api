@@ -2,17 +2,9 @@
 
 namespace App\Models\Booking\Booking;
 
-use App\Http\Token;
-use Illuminate\Support\Facades\DB;
-use League\Flysystem\Config;
 use MongoDB\Laravel\Eloquent\Model;
-use App\Models\CustomCasts\jsonToArray;
 use Illuminate\Support\Facades\Http;
 
-use App\Models\Booking\Booking\Booking_Status;
-use App\Models\Booking\Booking\Booking_Log_Find;
-use App\Models\Booking\Booking\Method_Payment;
-use App\Models\Booking\Driver\Driver_Info;
 use App\Models\Booking\Driver\Vehicle;
 use App\Models\Booking\Driver\Driver;
 use App\Models\Booking\Driver\Driver_Token;
@@ -25,8 +17,6 @@ use App\Models\Sky\User\User;
 use App\Models\Sky\User\DeviceToken;
 use App\Models\Sky\Config\Setting;
 use Google\Cloud\Core\Timestamp;
-
-//use function League\Flysystem\map;
 
 class Direction_Booking extends Model
 {
@@ -41,10 +31,11 @@ class Direction_Booking extends Model
         'expired_booking' => 'timestamp',
         'date_cancel' => 'timestamp',
         'date_start' => 'timestamp',
-        'date_end' => 'timestamp'
+        'date_end' => 'timestamp',
+        'schedule_time' => 'timestamp'
     ];
     protected $with = ['status_info', 'driver_info', 'method_info', 'customer_rated', 'driver_rated'];
-    protected $appends = ['vehicle_type', 'user_cancel_fullname'];
+    protected $appends = ['vehicle_type', 'user_cancel_fullname', 'reason'];
 
     public function customer_rated()
     {
@@ -76,6 +67,15 @@ class Direction_Booking extends Model
     public function method_info()
     {
         return $this->hasOne(Method_Payment::class, '_id', 'method')->withCasts(['created_at' => 'timestamp', 'updated_at' => 'timestamp'])->select('title', 'picture');
+    }
+
+    public function getReasonAttribute()
+    {
+        $output = $this->reason ?? '';
+        if(!empty($this->reason_id)) {
+            $output = Booking_Reason_Cancel::find($this->reason_id)->value('title');
+        }
+        return $output;
     }
 
     public function getUserCancelFullnameAttribute()
@@ -113,7 +113,7 @@ class Direction_Booking extends Model
         }
         return $output;
     }
-    
+
     public function getCustomerRateAttribute()
     {
         switch ($this->type) {
@@ -151,13 +151,13 @@ class Direction_Booking extends Model
         if($logFind) {
             $tmp = $logFind->send;
             $send = ims_json_decode($tmp);
-    
+
             $infoDriver = Driver::find($send['info_driver']['_id']);
             $from['lat'] = $infoBooking['detail']['lat'] ?? '';
             $from['lng'] = $infoBooking['detail']['lng'] ?? '';
             $to['lat'] = $send['info_driver']['latitude'] ?? '';
             $to['lng'] = $send['info_driver']['longitude'] ?? '';
-    
+
             $output = $this->get_address_goong($from, $to);
             $output['lat'] = $to['lat'];
             $output['lng'] = $to['lng'];
@@ -198,14 +198,14 @@ class Direction_Booking extends Model
         if (request()->method() != 'POST') {
             return response_custom('Sai phương thức!', 1, [], 405);
         }
-        
+
         $data = Direction_Booking::filter()
             ->when(!empty(request('item')) ?? null, function ($query){
                 $query->where('_id', request('item'));
             })
-            ->orderBy('created_at', 'desc')            
+            ->orderBy('created_at', 'desc')
             ->paginate(Config('per_page'), Config('fillable'), 'page', Config('current_page'))
-            ->toArray();        
+            ->toArray();
         // $data['data'] = collect($data['data'])->map(function($row){
         //     $row['driver_info']['full_name'] = 'An';
         //     return $row;
@@ -330,40 +330,78 @@ class Direction_Booking extends Model
 
         $infoUser = User::find($infoBooking['user_id']);
 
+        // $update = [
+        //     'is_cancel'    => 1,
+        //     'is_status' => -1,
+        //     'reason' => $input['reason'],
+        //     'reason_id' => request()->reason_id ?? 0,
+        //     'user_cancel' => 'ADMIN',
+        //     'date_cancel' => mongo_time(),
+        //     'driver_cancel_count' => $infoBooking['driver_cancel_count'] + 1,
+        //     'driver_waiting_date' => '',
+        //     'driver_waiting_confirm' => '',
+        //     'driver_waiting_confirm_fullname' => '',
+        // ];
+
+        // $ok = 0;
+        // if (empty($input['is_test'])) {
+        //     /**** Mở hoàn tiền cho khách nếu thanh toán bằng ví ****/
+        //     $method = Method_Payment::find($infoBooking['method']);
+        //     if ($method['name_action'] == 'wallet' && $infoBooking['wallet_cash_lock'] > 0) {
+        //         $update_lock = $infoBooking;
+        //         $update_lock['money_pay'] = $infoBooking['wallet_cash_lock'];
+
+        //         $target = Config('Api_app') . '/user/api/repay';
+        //         $token = (new Token)->getToken($target, $infoUser['_id']);
+        //         $id_log = Http::withToken($token)->post($target, $update_lock)->json();
+        //         if (isset($id_log['_id']) && $id_log['_id'] != "") {
+        //             $update['wallet_id_log'] = $id_log['_id'];
+        //             $update['wallet_cash_lock'] = 0;
+        //         } else {
+        //             return response_custom('Có lỗi xảy ra! không thể hoàn tiền lại cho khách.', 1);
+        //         }
+        //     }
+        //     /**** Mở hoàn tiền cho khách nếu thanh toán bằng ví ****/
+        //     $ok = Booking::where(["_id" => $infoBooking['_id']])->update($update);
+        // }
         $update = [
-            'is_cancel'    => 1,
+            'is_cancel'	=> 1,
             'is_status' => -1,
             'reason' => $input['reason'],
             'reason_id' => request()->reason_id ?? 0,
-            'user_cancel' => 'ADMIN',
+            'type_cancel' => "ADMIN",
+            'user_cancel' => "ADMIN",
             'date_cancel' => mongo_time(),
-            'driver_cancel_count' => $infoBooking['driver_cancel_count'] + 1,
-            'driver_waiting_date' => '',
+            'driver_waiting_date' => 0,
+            'driver_waiting_expired' => 0,
             'driver_waiting_confirm' => '',
             'driver_waiting_confirm_fullname' => '',
         ];
-        
-        $ok = 0;
-        if (empty($input['is_test'])) {
-            /**** Mở hoàn tiền cho khách nếu thanh toán bằng ví ****/
-            $method = Method_Payment::find($infoBooking['method']);
-            if ($method['name_action'] == 'wallet' && $infoBooking['wallet_cash_lock'] > 0) {
-                $update_lock = $infoBooking;
-                $update_lock['money_pay'] = $infoBooking['wallet_cash_lock'];
 
-                $target = Config('Api_app') . '/user/api/repay';
-                $token = (new Token)->getToken($target, $infoUser['_id']);
-                $id_log = Http::withToken($token)->post($target, $update_lock)->json();
-                if (isset($id_log['_id']) && $id_log['_id'] != "") {
-                    $update['wallet_id_log'] = $id_log['_id'];
-                    $update['wallet_cash_lock'] = 0;
+        /**** Mở hoàn điểm cho khách ****/
+            if (isset($infoBooking['amount_point']['point_use']) && $infoBooking['amount_point']['point_use']>0) {
+                $check = $this->_refund_point_cancel_booking($infoBooking, $infoUser);
+                if(isset($check->getData()->code) && $check->getData()->code== 200) {
+
                 } else {
-                    return response_custom('Có lỗi xảy ra! không thể hoàn tiền lại cho khách.', 1);
+                    return error_bad_request($check->getData()->message);
                 }
             }
-            /**** Mở hoàn tiền cho khách nếu thanh toán bằng ví ****/
-            $ok = Booking::where(["_id" => $infoBooking['_id']])->update($update);
-        }
+        /**** Mở hoàn điểm cho khách ****/
+
+        /**** Mở hoàn tiền cho khách nếu thanh toán bằng ví ****/
+            $method = Method_Payment::where(['_id' => $infoBooking['method']])->first();
+            if ($method['name_action']=='wallet' && $infoBooking['wallet_cash_lock']>0) {
+                $check = $this->_refund_money_cancel_booking($infoBooking, $infoUser);
+                if(isset($check->getData()->code) && $check->getData()->code== 200) {
+
+                } else {
+                    return error_bad_request($check->getData()->message);
+                }
+            }
+        /**** Mở hoàn tiền cho khách nếu thanh toán bằng ví ****/
+
+        $ok = Booking::where(["_id" => $infoBooking['_id']])->update($update);
         if ($ok) {
 
             /**** Hủy tài xế chờ xác nhận ****/
@@ -440,6 +478,79 @@ class Direction_Booking extends Model
             return response_custom('', 0, $update);
         }
         return response_custom('Không thể hủy!', 1);
+    }
+
+    public function _refund_point_cancel_booking($infoBooking=array(), $infoCustomer=array()) {
+        $params_pay = [
+            "user_id"   => $infoCustomer['_id'],
+            "item_code" => $infoBooking['item_code'],
+            "dbtable"   => "booking",
+            "dbtableid" => $infoBooking['_id'],
+            "dbname"    => "sky_booking",
+            "type"      => "repay",
+            "money_pay" => $infoBooking['amount_point']['point_use']
+        ];
+        $params_pay['securehash'] = sky_hash_hmac($params_pay, 'repay-spoint');
+        $id_log = _call_api_post('user/api/repay_spoint', $params_pay, $infoCustomer['_id']);
+        if(isset($id_log['_id']) && $id_log['_id']!="") {
+            // gửi thông báo hoàn điểm
+            $deviceTokens = $infoCustomer['device_token'];
+            $firebase = [
+                'token' => $deviceTokens,
+                'template' => 'rePaySpointBooking',
+                'arr_replace' => [
+                    'title' => [
+                        'item_code' => $infoBooking['item_code']
+                    ],
+                    'body' => [
+                        'value' => number_format($infoBooking['amount_point']['point_use'])
+                    ]
+                ],
+                'push_data' => [
+                    '_id' => $infoBooking['_id'],
+                    'type' => 'rePaySpointBooking'
+                ],
+            ];
+            _call_api_post('firebase/api/messaging', $firebase, $infoCustomer['_id']);
+        } else {
+            return error_bad_request('Có lỗi xảy ra! không thể hoàn điểm lại cho khách.');
+        }
+    }
+
+    public function _refund_money_cancel_booking($infoBooking=array(), $infoUser=array()) {
+        $params_pay = [
+            "user_id"   => $infoBooking['user_id'],
+            "item_code" => $infoBooking['item_code'],
+            "dbtable"   => "booking",
+            "dbtableid" => $infoBooking['_id'],
+            "dbname"    => "sky_booking",
+            "type"      => "repay",
+            "money_pay" => $infoBooking['wallet_cash_lock']
+        ];
+        $params_pay['securehash'] = sky_hash_hmac($params_pay, 'repay');
+        $id_log = _call_api_post('user/api/repay', $params_pay, $infoBooking['user_id']);
+        if(isset($id_log['_id']) && $id_log['_id']!="") {
+            // gửi thông báo hoàn tiền
+            $deviceTokens = $infoUser['device_token'];
+            $firebase = [
+                'token' => $deviceTokens,
+                'template' => 'paymentRefundBooking',
+                'arr_replace' => [
+                    'body' => [
+                        'price' => number_format($infoBooking['wallet_cash_lock'])
+                    ]
+                ],
+                'push_data' => [
+                    '_id' => $infoBooking['_id'],
+                    'type' => 'paymentRefundBooking'
+                ],
+            ];
+            _call_api_post('firebase/api/messaging', $firebase, $infoBooking['user_id']);
+
+            return response_custom();
+        } else {
+            return error_bad_request('Có lỗi xảy ra! không thể hoàn tiền lại cho khách.');
+        }
     }
 
     public function get_address_goong($from = [], $to = [])

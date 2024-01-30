@@ -9,8 +9,7 @@ class Driver_Register_Step extends Model
     protected $connection = 'sky_booking';
     protected $table = 'driver_register_step';
     protected $casts = [
-        'approved_at' => 'timestamp',
-        'refused_at' => 'timestamp',
+        'updated_at' => 'timestamp'
     ];
-    protected $hidden = ['_id','driver_id','created_at','updated_at'];
+    protected $hidden = ['_id','driver_id','created_at'];
 }

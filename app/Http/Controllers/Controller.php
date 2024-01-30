@@ -21,6 +21,7 @@ class Controller extends BaseController
         Config::set('admin_id', '656840d9a7955ceb440160f4');
         Config::set('Api_app', config('app.Api_app'));
         Config::set('Api_link', config('app.Api_link'));
+        Config::set('app.timezone', 'Asia/Bangkok');
 
         if(!request()->has('root') || !request()->has('mod') || !request()->has('act')){
             return response_custom('Không tìm thấy module hoặc action!', 1);
@@ -46,10 +47,10 @@ class Controller extends BaseController
         // -------------------- Dành cho phân trang --------------------
         // Số item phân trang
         $num_list = DB::table('sky_setting')->where('setting_key', 'admin_nlist')->where('is_show', 1)->first(['setting_value']);
-        $num_list = $num_list['setting_value'] ?? 30;
+        $num_list = !empty($num_list['setting_value']) ? (int)$num_list['setting_value'] : 30;
         Config::set('per_page', $num_list);
         // Trang hiện tại
-        $current_page = !empty(request('page')) ? request('page') : 1;
+        $current_page = !empty(request('page')) ? (int)request('page') : 1;
         Config::set('current_page', $current_page);
         // -------------------- Dành cho phân trang --------------------
 
@@ -106,9 +107,6 @@ class Controller extends BaseController
                 case 'listSetting':
                     return $this->doListSetting($check);
                     break;
-//                case 'pluck':
-//                    return $this->doPluck($check);
-//                    break;
                 default:
                     return response_custom('Thao tác không thành công',1);
                     break;
@@ -123,8 +121,8 @@ class Controller extends BaseController
         if(request('mod') == 'config' && request('act') == 'menu'){
             $root = 'Sky';
         }
-        $mod = ucwords(request('mod'));
-        $act = implode('_', array_map('ucwords', explode('_',request('act'))));
+        $mod = implode('_', array_map('ucwords', explode('_',request('mod'))));
+        $act = implode('_', array_map('ucwords', explode('_', request('act'))));
 
         $api = request()->segment(count(request()->segments()));
 
@@ -273,11 +271,11 @@ class Controller extends BaseController
                                 $replace_data[$k] = $this->db->collection($item_more['table'])
                                     ->pluck('title', $item_more['field'])->toArray();
                             }
-                            if(isset($item_more['multiple']) && $item_more['multiple'] == 'true'){
+                            if(isset($item_more['multiple']) && $item_more['multiple'] == 1){
                                 $replace_data[$k]['multiple'] = 1;
                             }
                         }else{
-                            if(isset($item_more['multiple']) && $item_more['multiple'] == 'true'){
+                            if(isset($item_more['multiple']) && $item_more['multiple'] == 1){
                                 $replace_data[$k]['multiple_select'] = 1;
                             }
                             if(!empty($item_more['data'])){
@@ -304,13 +302,13 @@ class Controller extends BaseController
                 $data = (new $this->func)->manager(1, $filter);
                 return $data;
             } catch (\Throwable $th) {
-                $data = (new $this->func)::when(request('sub') == 'manage' ?? null, function ($query){
+                $data = (new $this->func)::when(request('sub') == 'manage', function ($query){
                     $query->where(['is_show' => 1, 'parent_id' => '']);
                 })
-                    ->when(request('sub') == 'manage_trash' ?? null, function ($query){
+                    ->when(request('sub') == 'manage_trash', function ($query){
                         $query->where('is_show', 0)->without('sub');
                     })
-                    ->when($filter ?? null, function($query) use ($filter){ // Lọc các trường khác theo bộ lọc
+                    ->when(!empty($filter), function($query) use ($filter){ // Lọc các trường khác theo bộ lọc
                         foreach ($filter as $item){
                             eval($item);
                         }
@@ -319,7 +317,9 @@ class Controller extends BaseController
                     ->orderBy('created_at', 'desc')
                     ->paginate(Config('per_page'), Config('fillable'), 'page', Config('current_page'))->toArray();
                 $data['data'] = formatData($data['data'], $arr_convert, $replace_data);
-                return response_pagination($data);
+                $mess = $data['data']['mess'];
+                unset($data['data']['mess']);
+                return response_pagination($data, $mess);
             }
         }else{
             try {
@@ -327,13 +327,13 @@ class Controller extends BaseController
                 return $data;
             } catch (\Throwable $th) {
                 $data = $this->db->collection($check['table'])
-                    ->when(request('sub') == 'manage' ?? null, function ($query){
+                    ->when(request('sub') == 'manage', function ($query){
                         $query->where('is_show', 1);
                     })
-                    ->when(request('sub') == 'manage_trash' ?? null, function ($query){
+                    ->when(request('sub') == 'manage_trash', function ($query){
                         $query->where('is_show', 0);
                     })
-                    ->when($filter ?? null, function($query) use ($filter){ // Lọc các trường khác theo bộ lọc
+                    ->when(!empty($filter), function($query) use ($filter){ // Lọc các trường khác theo bộ lọc
                         foreach ($filter as $item){
                             eval($item);
                         }
@@ -342,7 +342,9 @@ class Controller extends BaseController
                     ->orderBy('created_at', 'desc')
                     ->paginate(Config('per_page'), Config('fillable'), 'page', Config('current_page'))->toArray();
                 $data['data'] = formatData($data['data'], $arr_convert, $replace_data);
-                return response_pagination($data);
+                $mess = $data['data']['mess'];
+                unset($data['data']['mess']);
+                return response_pagination($data, $mess);
             }
         }
     }
@@ -382,7 +384,7 @@ class Controller extends BaseController
                                 $choosed = !empty($v['only_choosed']) ? (!empty($item[$k]) ? $item[$k] : ['no_data']) : []; // Chỉ lấy danh sách đã chọn
                                 if(!empty($v['db'])){
                                     $data_option = DB::connection($v['db'])->collection($v['table'])
-                                        ->when(($choosed) ?? null, function ($query) use ($key, $choosed){
+                                        ->when(!empty($choosed), function ($query) use ($key, $choosed){
                                             $query->whereIn($key, $choosed);
                                         })
                                         ->get($get)
@@ -390,7 +392,7 @@ class Controller extends BaseController
                                         ->toArray();
                                 }else{
                                     $data_option = $this->db->collection($v['table'])
-                                        ->when(($choosed) ?? null, function ($query) use ($key, $choosed){
+                                        ->when(!empty($choosed), function ($query) use ($key, $choosed){
                                             $query->whereIn($key, $choosed);
                                         })
                                         ->get($get)
@@ -502,7 +504,8 @@ class Controller extends BaseController
         }
 
         if($ok == 1){
-            return response_custom('Thành công',0, $data);
+            $mess = !empty($item['mess']) ? $item['mess'] : '';
+            return response_custom($mess, 0, $data);
         }else{
             return response_custom('Không tìm thấy dữ liệu',1);
         }
@@ -594,15 +597,6 @@ class Controller extends BaseController
         }
         $data = formatData([$data], $arr_convert);
         return response_custom('',0, $data[0]);
-    }
-
-    function doPluck(){
-        if(request()->method() != 'POST'){
-            return response_custom('Sai phương thức!',1,[],405);
-        }
-        if(empty(request('pluck'))){
-
-        }
     }
 
     function doListGroup($check, $data = array()){

@@ -98,11 +98,11 @@ return [
 
         'sky_cms' => [
             'driver' => 'mongodb',
-            'host' => 'sd108208.server.idn.vn',
+            'host' => 'localhost',
             'port' => 27017,
             'database' => 'sky_cms',
-            'username' => 'skytech',
-            'password' => '2prMywH8UhxBvt',
+            'username' => '',
+            'password' => '',
             'options' => [
 //                'appname' => 'homestead',
                 'db' => 'admin'
@@ -113,8 +113,8 @@ return [
             'host' => '127.0.0.1',
             'port' => 27017,
             'database' => 'sky_gateway',
-            'username' => 'skytech',
-            'password' => '2prMywH8UhxBvt',
+            'username' => '',
+            'password' => '',
             'options' => [
 //                'appname' => 'homestead',
                 'db' => 'admin'
@@ -122,11 +122,11 @@ return [
         ],
         'config' => [
             'driver' => 'mongodb',
-            'host' => 'sd108208.server.idn.vn',
+            'host' => 'localhost',
             'port' => 27017,
             'database' => 'config',
-            'username' => 'skytech',
-            'password' => '2prMywH8UhxBvt',
+            'username' => '',
+            'password' => '',
             'options' => [
 //                'appname' => 'homestead',
                 'db' => 'admin'
@@ -134,11 +134,11 @@ return [
         ],
         'fnb_product' => [
             'driver' => 'mongodb',
-            'host' => 'sd108208.server.idn.vn',
+            'host' => 'localhost',
             'port' => 27017,
             'database' => 'fnb_product',
-            'username' => 'skytech',
-            'password' => '2prMywH8UhxBvt',
+            'username' => '',
+            'password' => '',
             'options' => [
 //                'appname' => 'homestead',
                 'db' => 'admin'
@@ -146,11 +146,11 @@ return [
         ],
         'fnb_store' => [
             'driver' => 'mongodb',
-            'host' => 'sd108208.server.idn.vn',
+            'host' => 'localhost',
             'port' => 27017,
             'database' => 'fnb_store',
-            'username' => 'skytech',
-            'password' => '2prMywH8UhxBvt',
+            'username' => '',
+            'password' => '',
             'options' => [
 //                'appname' => 'homestead',
                 'db' => 'admin'
@@ -158,11 +158,11 @@ return [
         ],
         'ims' => [
             'driver' => 'mongodb',
-            'host' => 'sd108208.server.idn.vn',
+            'host' => 'localhost',
             'port' => 27017,
             'database' => 'ims',
-            'username' => 'skytech',
-            'password' => '2prMywH8UhxBvt',
+            'username' => '',
+            'password' => '',
             'options' => [
 //                'appname' => 'homestead',
                 'db' => 'admin'
@@ -170,11 +170,11 @@ return [
         ],
         'local' => [
             'driver' => 'mongodb',
-            'host' => 'sd108208.server.idn.vn',
+            'host' => 'localhost',
             'port' => 27017,
             'database' => 'local',
-            'username' => 'skytech',
-            'password' => '2prMywH8UhxBvt',
+            'username' => '',
+            'password' => '',
             'options' => [
 //                'appname' => 'homestead',
                 'db' => 'admin'
@@ -182,11 +182,11 @@ return [
         ],
         'sky' => [
             'driver' => 'mongodb',
-            'host' => 'sd108208.server.idn.vn',
+            'host' => 'localhost',
             'port' => 27017,
             'database' => 'sky',
-            'username' => 'skytech',
-            'password' => '2prMywH8UhxBvt',
+            'username' => '',
+            'password' => '',
             'options' => [
 //                'appname' => 'homestead',
                 'db' => 'admin'
@@ -194,11 +194,11 @@ return [
         ],
         'sky_booking' => [
             'driver' => 'mongodb',
-            'host' => 'sd108208.server.idn.vn',
+            'host' => 'localhost',
             'port' => 27017,
             'database' => 'sky_booking',
-            'username' => 'skytech',
-            'password' => '2prMywH8UhxBvt',
+            'username' => '',
+            'password' => '',
             'options' => [
 //                'appname' => 'homestead',
                 'db' => 'admin'
@@ -206,11 +206,11 @@ return [
         ],
         'sky_driver' => [
             'driver' => 'mongodb',
-            'host' => 'sd108208.server.idn.vn',
+            'host' => 'localhost',
             'port' => 27017,
             'database' => 'sky_driver',
-            'username' => 'skytech',
-            'password' => '2prMywH8UhxBvt',
+            'username' => '',
+            'password' => '',
             'options' => [
 //                'appname' => 'homestead',
                 'db' => 'admin'
@@ -218,11 +218,11 @@ return [
         ],
         'sky_partner' => [
             'driver' => 'mongodb',
-            'host' => 'sd108208.server.idn.vn',
+            'host' => 'localhost',
             'port' => 27017,
             'database' => 'sky_partner',
-            'username' => 'skytech',
-            'password' => '2prMywH8UhxBvt',
+            'username' => '',
+            'password' => '',
             'options' => [
 //                'appname' => 'homestead',
                 'db' => 'admin'
@@ -230,11 +230,11 @@ return [
         ],
         'sky_user' => [
             'driver' => 'mongodb',
-            'host' => 'sd108208.server.idn.vn',
+            'host' => 'localhost',
             'port' => 27017,
             'database' => 'sky_user',
-            'username' => 'skytech',
-            'password' => '2prMywH8UhxBvt',
+            'username' => '',
+            'password' => '',
             'options' => [
 //                'appname' => 'homestead',
                 'db' => 'admin'
@@ -242,11 +242,11 @@ return [
         ],
         'sky_voucher' => [
             'driver' => 'mongodb',
-            'host' => 'sd108208.server.idn.vn',
+            'host' => 'localhost',
             'port' => 27017,
             'database' => 'sky_voucher',
-            'username' => 'skytech',
-            'password' => '2prMywH8UhxBvt',
+            'username' => '',
+            'password' => '',
             'charset' => 'utf8mb4',
             'collation' => 'utf8mb4_unicode_ci',
             'options' => [
@@ -256,11 +256,11 @@ return [
         ],
         'sky_payment' => [
             'driver' => 'mongodb',
-            'host' => 'sd108208.server.idn.vn',
+            'host' => 'localhost',
             'port' => 27017,
             'database' => 'sky_payment',
-            'username' => 'skytech',
-            'password' => '2prMywH8UhxBvt',
+            'username' => '',
+            'password' => '',
             'options' => [
 //                'appname' => 'homestead',
                 'db' => 'admin'
@@ -269,11 +269,11 @@ return [
 
         'sky_firebase' => [
             'driver' => 'mongodb',
-            'host' => 'sd108208.server.idn.vn',
+            'host' => 'localhost',
             'port' => 27017,
             'database' => 'sky_firebase',
-            'username' => 'skytech',
-            'password' => '2prMywH8UhxBvt',
+            'username' => '',
+            'password' => '',
             'options' => [
 //                'appname' => 'homestead',
                 'db' => 'admin'

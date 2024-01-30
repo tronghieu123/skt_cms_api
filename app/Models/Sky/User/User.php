@@ -23,9 +23,11 @@ class User extends Model
         'deleted_at' => 'timestamp'
     ];
 
-    public function list_token()
-    {
+    public function list_token(){
         return $this->hasMany(DeviceToken::class, 'user_id', '_id')->select(['device_name','user_id','device_token']);
+    }
+    public function user_rank(){
+        return $this->hasOne(User_Rank::class, '_id', 'rank')->select('title','picture');
     }
 
     function addEditUser(){
@@ -133,9 +135,18 @@ class User extends Model
                                     foreach ($device_token as $item){
                                         $data = [
                                             'token' => $item,
-                                            'push_noti' => [
-                                                'title' => 'Thông báo khóa tài khoản',
-                                                'body' => request('reason')
+                                            'template' => 'userLocked',
+                                            'arr_replace' => [
+                                                'title' => [
+                                                    'created_at' => date('H:i d-m-Y')
+                                                ],
+                                                'body' => [
+                                                    'created_at' => date('H:i d/m/Y'),
+                                                    'reason' => request('reason')
+                                                ]
+                                            ],
+                                            'push_data' => [
+                                                'type' => 'userLocked'
                                             ]
                                         ];
                                         Http::post($target_notic, $data)->json(); // Gửi thông báo đến tài khoản bị khóa
@@ -207,6 +218,7 @@ class User extends Model
             return response_custom('Sai phương thức!', 1, [],405);
         }
         $data = User::with('list_token')
+            ->with('user_rank')
             ->when(request('type') == 'pending' ?? null, function ($query){
                 $query->where('is_show', 0)->orWhere('is_show', null); // Đợi duyệt
             })
@@ -220,6 +232,7 @@ class User extends Model
             ->orderBy('created_at', 'desc')
             ->paginate(Config('per_page'), Config('fillable'), 'page', Config('current_page'))
             ->toArray();
+        $data['other']['rank'] = User_Rank::where('is_show', 1)->orderBy('order_level','asc')->pluck('title','_id');
         $data['other']['counter'] = $this->tabListUser();
         return response_pagination($data);
     }
@@ -280,5 +293,49 @@ class User extends Model
         }else{
             return response_custom('Không tìm thấy từ khóa',1);
         }
+    }
+
+    // ------------------- Thay đổi hạng thành viên -------------------
+    function changeRankUser(){
+        if(request()->method() != 'POST'){
+            return response_custom('Sai phương thức!', 1, [],405);
+        }
+        if(!empty(request('item'))){
+            $user = User::where('_id', request('item'))->first();
+            if($user){
+                $user_rank = User_Rank::where('is_show', 1)->get(['point_min','point_max','title'])->keyBy('_id')->toArray();
+                $user = $user->toArray();
+                if(!empty(request('rank')) && in_array(request('rank'), array_keys($user_rank))){
+                    if(!empty($user['rank'])){
+                        if($user['rank'] == request('rank')){
+                            return response_custom('Thành viên đã là hạng '.$user_rank[$user['rank']]['title'].' rồi!', 1);
+                        }else{
+                            $update_rank = [
+                                'rank' => request('rank'),
+                                'wallet_point_total' => $user_rank[request('rank')]['point_min'],
+                                'wallet_point_change' => 1
+                            ];
+                            $ok = User::where('_id', request('item'))->update($update_rank);
+                            if($ok){
+                                return response_custom('Cập nhật hạng thành công!');
+                            }
+                        }
+                    }else{
+                        $update_rank = [
+                            'rank' => request('rank'),
+                            'wallet_point_total' => $user_rank[request('rank')]['point_min'],
+                            'wallet_point_change' => 1
+                        ];
+                        $ok = User::where('_id', request('item'))->update($update_rank);
+                        if($ok){
+                            return response_custom('Cập nhật hạng thành công!');
+                        }
+                    }
+                }else{
+                    return response_custom('Hạng không hợp lệ!', 1);
+                }
+            }
+        }
+        return response_custom('Thao tác không thành công!', 1);
     }
 }

@@ -78,7 +78,8 @@ class Voucher extends Model{
             })
             ->when((request('sub') == 'manage') ?? null, function ($query){
                 $query->where('is_show', 1);
-            });
+            })
+            ->where('lang', Config('lang_cur'));
     }
 
 
@@ -120,14 +121,15 @@ class Voucher extends Model{
                     }
                 }
                 // Thời gian bắt đầu ko được trước ngày tạo, và kết thúc ko được trước bắt đầu
-                $date_start = time();
+//                $date_start = time();
+                $date_start = 0;
                 if(!empty($arr_data['date_start'])){
                     $arr_date = explode(' ', $arr_data['date_start']);
                     $date = explode('-', $arr_date[0]);
                     $date_start = strtotime($date[2].'-'.$date[1].'-'.$date[0].' '.$arr_date[1]);
-                    if($date_start < time()){
-                        return response_custom('Thời gian bắt đầu không hợp lệ!', 1);
-                    }
+//                    if($date_start < time()){
+//                        return response_custom('Thời gian bắt đầu không hợp lệ!', 1);
+//                    }
                 }
                 if(!empty($arr_data['date_end'])){
                     $arr_date = explode(' ', $arr_data['date_end']);
@@ -151,8 +153,9 @@ class Voucher extends Model{
                     return response_custom('Không tìm thấy dữ liệu!', 1);
                 }
                 // Kiểm tra thời gian bắt đầu không được trước thời gian tạo mã trước đó
-                $date_start_current = $promotion['created_at'];
-                $date_start = time();
+                $date_start_current = $promotion['date_start'];
+//                $date_start = time();
+                $date_start = $date_start_current;
                 if(!empty($arr_data['date_start'])){
                     $arr_date = explode(' ', $arr_data['date_start']);
                     $date = explode('-', $arr_date[0]);
@@ -222,20 +225,21 @@ class Voucher extends Model{
             $data['method_type'] = !empty($arr_data['method_type']) ? array_values(array_unique(array_filter($arr_data['method_type']))) : [];
             $data['list_user'] = !empty($arr_data['list_user']) ? array_values(array_unique(array_filter($arr_data['list_user']))) : [];
             $data['type_promotion'] = $arr_data['type_promotion'];
-            $data['value_max'] = (float)$arr_data['value_max'] ?? 0;
-            $data['value_type'] = (int)$arr_data['value_type'];
-            $data['value'] = (int)$arr_data['value'] ?? 0;
-            $data['total_min'] = (float)$arr_data['total_min'] ?? 0;
-            $data['max_use'] = (int)$arr_data['max_use'] ?? 0;
-            $data['num_user_use'] = (int)$arr_data['num_user_use'] ?? 0;
+            $data['value_max'] = !empty($arr_data['value_max']) ? (float)$arr_data['value_max'] : 0;
+            $data['value_type'] = !empty($arr_data['value_type']) ? (int)$arr_data['value_type'] : 0;
+            $data['value'] = !empty($arr_data['value']) ? (int)$arr_data['value'] : 0;
+            $data['total_min'] = !empty($arr_data['total_min']) ? (float)$arr_data['total_min'] : 0;
+            $data['num_use'] = 0;
+            $data['max_use'] = !empty($arr_data['max_use']) ? (int)$arr_data['max_use'] : 0;
+            $data['num_user_use'] = !empty($arr_data['num_user_use']) ? (int)$arr_data['num_user_use'] : 0;
             $data['date_start'] = convert_date_time($arr_data['date_start']) ?? convert_date_time(date('d-m-Y H:i'));
             $data['date_end'] = convert_date_time($arr_data['date_end']) ?? convert_date_time(date('d-m-Y H:i', strtotime('+1 day')));
             $data['short'] = htmlspecialchars($arr_data['short']) ?? '';
             $data['description'] = htmlspecialchars($arr_data['description']) ?? '';
             $data['create_type'] = $arr_data['create_type'] ?? '';
             $data['picture'] = $arr_data['picture'] ?? '';
-            $data['is_exchange_points'] = (int)$arr_data['is_exchange_points'] ?? 0;
-            $data['exchange_points'] = (int)$arr_data['exchange_points'] ?? 0;
+            $data['is_exchange_points'] = !empty($arr_data['is_exchange_points']) ? (int)$arr_data['is_exchange_points'] : 0;
+            $data['exchange_points'] = !empty($arr_data['exchange_points']) ? (int)$arr_data['exchange_points'] : 0;
             $data['user_rank'] = $arr_data['user_rank'] ?? '';
             $data['is_show'] = 1;
             $data['lang'] = 'vi';
@@ -322,7 +326,7 @@ class Voucher extends Model{
             }
         }else{
             $data = [];
-            $data['user_rank'] = User_Rank::where('is_show',1)->pluck('title','_id');
+            $data['user_rank_selected'] = User_Rank::where('is_show',1)->pluck('title','_id');
             $data['method_type_selected'] = Booking_Method_Payment::where('is_show', 1)->pluck('title', '_id');
             return response_custom('',0,$data);
         }

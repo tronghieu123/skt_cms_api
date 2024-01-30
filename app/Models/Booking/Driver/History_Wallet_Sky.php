@@ -47,12 +47,21 @@ class History_Wallet_Sky extends Model{
         $arr_replace_root = ['bank_name','method','created_at','item_code'];
         if(!empty($data['data'])){
             foreach ($data['data'] as $k => $v){
-                $transaction_info = DB::connection($v['dbname'])->collection($v['dbtable'])->where('_id', $v['dbtableid'])->first();
-                if($transaction_info){
-                    $transaction_info['created_at'] = date('H:i d-m-Y', parseTimestamp($transaction_info['created_at']));
+                if(!in_array($v['type'], ['admin_add','admin_minus'])){
+                    $transaction_info = DB::connection($v['dbname'])->collection($v['dbtable'])->where('_id', $v['dbtableid'])->first();
+                    if($transaction_info){
+                        $transaction_info['created_at'] = date('H:i d-m-Y', parseTimestamp($transaction_info['created_at']));
+                        foreach ($arr_replace_root as $item){
+                            $arr_replace[] = '{'.$item.'}';
+                            $arr_value[] = $transaction_info[$item] ?? '';
+                        }
+                        $data['data'][$k]['description'] = (!empty($data['other']['type']) && !empty($data['data'][$k]['type'])) ? str_replace($arr_replace, $arr_value, $data['other']['type'][$data['data'][$k]['type']]['description']) : '';
+                    }
+                }else{
+                    $v['created_at'] = date('H:i d-m-Y', $v['created_at']);
                     foreach ($arr_replace_root as $item){
                         $arr_replace[] = '{'.$item.'}';
-                        $arr_value[] = $transaction_info[$item] ?? '';
+                        $arr_value[] = !empty($v[$item]) ? $v[$item] : '';
                     }
                     $data['data'][$k]['description'] = (!empty($data['other']['type']) && !empty($data['data'][$k]['type'])) ? str_replace($arr_replace, $arr_value, $data['other']['type'][$data['data'][$k]['type']]['description']) : '';
                 }
@@ -86,5 +95,56 @@ class History_Wallet_Sky extends Model{
                 $query->where('partner_id', request('item'));
             })
             ->where('is_show', 1);
+    }
+
+    // Cộng trừ tiền partner
+    function adminAddMinusWalletPartner(){
+        if(request()->method() != 'POST'){
+            return response_custom('Sai phương thức!', 1, [],405);
+        }
+        if(!empty(request('arr_data'))){
+            $arr_data = json_decode(request('arr_data'), true);
+            if($arr_data){
+                if(!empty($arr_data['driver_id'])){
+                    $driver = Driver::where('_id', $arr_data['driver_id'])->without('info','vehicle_type','approve')->first();
+                    if($driver){
+                        $driver = $driver->toArray();
+                        $partner = !empty($driver['partner']) ? $driver['partner'] : [];
+                        if(!empty($partner)){
+                            if(!empty($arr_data['type']) && in_array($arr_data['type'], ['admin_add','admin_minus'])){
+                                if(!empty($arr_data['value']) && is_numeric($arr_data['value'])){
+                                    $value = abs($arr_data['value']);
+                                    $data = [
+                                        "partner_id" => $partner['_id'],
+                                        "item_code" => "",
+                                        "dbtable" => $this->table,
+                                        "dbtableid" => (new \MongoDB\BSON\ObjectID())->jsonSerialize()['$oid'],
+                                        "dbname" => $this->connection,
+                                        "type" => $arr_data['type'],
+                                        "money_pay" => $value,
+                                        'content' => !empty($arr_data['content']) ? $arr_data['content'] : ''
+                                    ];
+                                    $type = ($arr_data['type'] == 'admin_add') ? 'repay' : 'pay';
+                                    $data['other']['api_link'] = Config('Api_app').'/partner/api/'.$type;
+                                    $data['other']['type'] = $type;
+                                    return response_custom('',0, $data);
+                                }else{
+                                    return response_custom('Vui lòng nhập số điểm cộng!', 1);
+                                }
+                            }
+                        }else{
+                            return response_custom('Không tìm thấy partner!', 1);
+                        }
+                    }else{
+                        return response_custom('Không tìm thấy tài xế!', 1);
+                    }
+                }else{
+                    return response_custom('Vui lòng chọn tài xế!', 1);
+                }
+            }
+        }else{
+            return response_custom('Không tìm thấy dữ liệu!', 1);
+        }
+        return response_custom('Thao tác không thành công!', 1);
     }
 }

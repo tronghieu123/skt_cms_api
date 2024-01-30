@@ -125,7 +125,7 @@ class Withdraw_History extends Model
                                         'is_approve' => 2,
                                         'is_status' => 2,
                                         'reason' => request('reason'),
-                                        'rejected_at' => mongo_time()
+                                        'updated_at' => mongo_time()
                                     ];
                                     $ok = Withdraw_History::where('_id', request('item'))->update($reject);
                                     if($ok){
@@ -140,17 +140,22 @@ class Withdraw_History extends Model
                                             'value_after' => (double)($wallet_sky + $withdraw['value']),
                                             'partner_id' => $partner['_id'],
                                             'is_show' => 1,
-                                            'is_status' => 2,
+                                            'is_status' => 1,
                                             'item_code' => $withdraw['item_code'],
                                             'created_at' => mongo_time(),
                                             'updated_at' => mongo_time()
                                         ];
-                                        $ok1 = History_Wallet_Sky::insert($history_wallet_sky);
+                                        $ok1 = History_Wallet_Sky::insert($history_wallet_sky); // Tạo log mới hoàn tiền thành công
                                         if($ok1){
+                                            $update_history_wallet_sky_old = [
+                                                'is_status' => 2,
+                                                'updated_at' => mongo_time()
+                                            ];
+                                            History_Wallet_Sky::where('_id', $withdraw['wallet_id_log'])->update($update_history_wallet_sky_old); // Cập nhật log cũ thành is_status = 2
                                             $update_partner = [
                                                 'wallet_sky' => (double)($wallet_sky + $withdraw['value'])
                                             ];
-                                            Partner::where('_id', $partner['_id'])->update($update_partner);
+                                            Partner::where('_id', $partner['_id'])->update($update_partner); // Cập nhật lại tiền của tài xế trong partner
                                             $this->sendNotificationWithdraw($withdraw);
                                             return response_custom('Từ chối rút tiền thành công!');
                                         }
@@ -163,18 +168,17 @@ class Withdraw_History extends Model
                                 $accept = [
                                     'is_approve' => 1,
                                     'is_status' => 1,
-                                    'approved_at' => mongo_time()
+                                    'updated_at' => mongo_time()
                                 ];
                                 $ok = Withdraw_History::where('_id', request('item'))->update($accept);
                                 if($ok){
                                     $update_history_wallet_sky = [
-                                        'is_status' => 1
+                                        'is_status' => 1,
+                                        'updated_at' => mongo_time()
                                     ];
-                                    $ok1 = History_Wallet_Sky::where('_id', $withdraw['wallet_id_log'])->update($update_history_wallet_sky);
-                                    if($ok1){
-                                        $this->sendNotificationWithdraw($withdraw);
-                                        return response_custom('Duyệt rút tiền thành công!');
-                                    }
+                                    History_Wallet_Sky::where('_id', $withdraw['wallet_id_log'])->update($update_history_wallet_sky);
+                                    $this->sendNotificationWithdraw($withdraw);
+                                    return response_custom('Duyệt rút tiền thành công!');
                                 }
                                 break;
                         }

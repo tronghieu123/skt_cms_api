@@ -114,7 +114,7 @@ class Withdraw_History extends Model{
                                         'is_approve' => 2,
                                         'is_status' => 2,
                                         'reason' => request('reason'),
-                                        'rejected_at' => mongo_time()
+                                        'updated_at' => mongo_time()
                                     ];
                                     $ok = Withdraw_History::where('_id', request('item'))->update($reject);
                                     if($ok){
@@ -137,9 +137,10 @@ class Withdraw_History extends Model{
                                         $ok1 = Wallet_Cash_Log::insert($wallet_cash_log);
                                         if($ok1){
                                             $update_wallet_cash_log_old = [
-                                                'is_status' => 1
+                                                'is_status' => 1,
+                                                'updated_at' => mongo_time()
                                             ];
-                                            $ok2 = Wallet_Cash_Log::where('_id', $withdraw['wallet_id_log'])->update($update_wallet_cash_log_old);
+                                            Wallet_Cash_Log::where('_id', $withdraw['wallet_id_log'])->update($update_wallet_cash_log_old);
                                             $update_user = [
                                                 'wallet_cash' => (double)($wallet_cash + $withdraw['value'])
                                             ];
@@ -156,18 +157,17 @@ class Withdraw_History extends Model{
                                 $accept = [
                                     'is_approve' => 1,
                                     'is_status' => 1,
-                                    'approved_at' => mongo_time()
+                                    'updated_at' => mongo_time()
                                 ];
                                 $ok = Withdraw_History::where('_id', request('item'))->update($accept);
                                 if($ok){
                                     $update_wallet_cash_log = [
-                                        'is_status' => 1
+                                        'is_status' => 1,
+                                        'updated_at' => mongo_time()
                                     ];
-                                    $ok1 = Wallet_Cash_Log::where('_id', $withdraw['wallet_id_log'])->update($update_wallet_cash_log);
-                                    if($ok1){
-                                        $this->sendNotificationWithdraw($withdraw);
-                                        return response_custom('Duyệt rút tiền thành công!');
-                                    }
+                                    Wallet_Cash_Log::where('_id', $withdraw['wallet_id_log'])->update($update_wallet_cash_log);
+                                    $this->sendNotificationWithdraw($withdraw);
+                                    return response_custom('Duyệt rút tiền thành công!');
                                 }
                                 break;
                         }

@@ -3,9 +3,7 @@
 namespace App\Models\Booking\Driver;
 
 use App\Http\Token;
-use App\Models\Booking\Driver\Driver_Contract;
 use App\Models\System\Booking\Driver_Contract_Template;
-use League\Flysystem\Config;
 use MongoDB\Laravel\Eloquent\Model;
 use Illuminate\Support\Facades\Http;
 
@@ -33,7 +31,7 @@ class Driver extends Model
     }
 
     public function vehicle_type() {
-        return $this->hasOne(Vehicle::class, '_id',  'vehicle')->select(['name_action']);
+        return $this->hasOne(Vehicle::class, '_id',  'vehicle')->select('name_action','picture','title');
     }
 
     public function partner() {
@@ -105,6 +103,9 @@ class Driver extends Model
         if(!empty(request('item'))){
             $driver = Driver::where('_id', request('item'))->first();
             if($driver){
+                if($driver['is_approve'] == 2){
+                    return response_custom('Tài xế đã bị khóa!', 1);
+                }
                 $driver = $driver->toArray();
                 // -------------- Xe 2 bánh, 3 bánh --------------
                 $total_step = 7;
@@ -147,7 +148,7 @@ class Driver extends Model
                     if(!request()->has('step') || !in_array(request('step'), $arr_step)){
                         return response_custom('Bước duyệt không hợp lệ!',1);
                     }
-                    if(!request()->has('accept') || !in_array(request('accept'),[0,1])){
+                    if(!request()->has('accept') || !in_array(request('accept'),[0,1,2])){
                         return response_custom('Trạng thái duyệt không hợp lệ!',1);
                     }
                     if(request('step') == 'all'){
@@ -157,7 +158,7 @@ class Driver extends Model
                                 if($v['status'] == 0){
                                     $update = [
                                         'status' => 1,
-                                        'approved_at' => mongo_time()
+                                        'updated_at' => mongo_time()
                                     ];
                                     Driver_Register_Step::where('_id', $k)->update($update);
                                     $count_accept++;
@@ -176,10 +177,13 @@ class Driver extends Model
                                     ];
                                     Driver::where('_id', request('item'))->update($update_driver);
                                     // Gửi thông báo đã duyệt cho tài xế
-                                    $this->noticApproveDriver($driver);
+                                    $data = [
+                                        'template' => 'registrationApproved'
+                                    ];
+                                    $this->notifyApproveDriver($driver, $data);
                                 }
+                                return response_custom('Duyệt tất cả thành công!');
                             }
-                            return response_custom('Duyệt tất cả thành công!');
                         }else{
                             return response_custom('Trạng thái duyệt không hợp lệ!',1);
                         }
@@ -187,46 +191,79 @@ class Driver extends Model
                         $ok = 0;
                         foreach ($approve as $k => $v){
                             if(request('step') == $v['step']){
-                                if($v['status'] == 1){
-                                    return response_custom($arr_title[request('step')].' đã duyệt rồi!',1);
-                                }else{
-                                    if(request('accept') == 0){ // Từ chối duyệt
-                                        if(empty(request('reason'))){
-                                            return response_custom('Vui lòng nhập lí do từ chối duyệt!',1);
-                                        }else{
-                                            $update = [
-                                                'status' => 2,
-                                                'reason' => request('reason'),
-                                                'refused_at' => mongo_time()
-                                            ];
-                                            Driver_Register_Step::where('_id', $k)->update($update);
-                                            // Gửi thông báo từ chối duyệt đến các thiết bị tài khoản đang đăng nhập
-                                            $device_token = Driver_Token::where('driver_id', request('item'))->pluck('device_token');
-                                            if($device_token){
-                                                $target_notic = Config('Api_app').'/firebase/api/messaging';
-                                                foreach ($device_token as $item){
-                                                    $data = [
-                                                        'token' => $item,
-                                                        'push_noti' => [
-                                                            'title' => 'Từ chối duyệt '.$arr_title[request('step')],
-                                                            'body' => request('reason')
-                                                        ]
-                                                    ];
-                                                    Http::post($target_notic, $data)->json();
-                                                }
+                                switch ($v['status']){
+                                    case 0:
+                                        if(request('accept') == 0){ // Từ chối duyệt
+                                            if(empty(request('reason'))){
+                                                return response_custom('Vui lòng nhập lí do từ chối duyệt!',1);
+                                            }else{
+                                                $update = [
+                                                    'status' => 2,
+                                                    'reason' => request('reason'),
+                                                    'updated_at' => mongo_time()
+                                                ];
+                                                Driver_Register_Step::where('_id', $k)->update($update);
+                                                // Gửi thông báo từ chối duyệt đến các thiết bị tài khoản đang đăng nhập
+                                                $data = [
+                                                    'template' => 'rejectStepDriver',
+                                                    'step' => $arr_title[request('step')],
+                                                    'reason' => request('reason')
+                                                ];
+                                                $this->notifyApproveDriver($driver, $data);
+                                                return response_custom('Từ chối '.$arr_title[request('step')].' thành công!',0, color_status(2));
                                             }
-                                            return response_custom('Từ chối '.$arr_title[request('step')].' thành công!',0,color_status(2));
+                                        }elseif(request('accept') == 1){
+                                            $update = [
+                                                'status' => 1,
+                                                'updated_at' => mongo_time()
+                                            ];
+                                            $ok = 1;
+                                            Driver_Register_Step::where('_id', $k)->update($update);
+                                        }elseif(request('accept') == 2){ // Duyệt lại
+                                            return response_custom($arr_title[request('step')].' chưa được duyệt!', 1);
                                         }
-                                    }else{
-                                        $update = [
-                                            'status' => 1,
-                                            'approved_at' => mongo_time()
-                                        ];
-                                        $ok = 1;
-                                        Driver_Register_Step::where('_id', $k)->update($update);
                                         break;
-                                    }
+                                    case 1:
+                                        if(request('accept') == 2){ // Duyệt lại
+                                            if(empty(request('reason'))){
+                                                return response_custom('Vui lòng nhập lí do yêu cầu duyệt lại!',1);
+                                            }else{
+                                                $update_step = [
+                                                    'status' => 3,
+                                                    'reason' => request('reason'),
+                                                    'updated_at' => mongo_time()
+                                                ];
+                                                Driver_Register_Step::where('_id', $k)->update($update_step);
+                                                $update_driver = [
+                                                    'is_approve' => 0,
+                                                    'updated_at' => mongo_time()
+                                                ];
+                                                Driver::where('_id', request('item'))->update($update_driver);
+                                                // Gửi thông báo duyệt lại cho tài xế
+                                                $data = [
+                                                    'template' => 'reapproveStepDriver',
+                                                    'step' => $arr_title[request('step')],
+                                                    'reason' => request('reason')
+                                                ];
+                                                $this->notifyApproveDriver($driver, $data);
+                                                // Log out tài khoản ra mọi thiết bị
+                                                $target = Config('Api_app').'/booking/api/logout';
+                                                $token = (new Token)->getToken($target, request('item'));
+                                                Http::withToken($token)->post($target, ['logout_all' => 1, 'user_id' => request('item')])->json();
+                                                return response_custom('Yêu cầu duyệt lại '.$arr_title[request('step')].' thành công!',0, color_status(3));
+                                            }
+                                        }else{
+                                            return response_custom($arr_title[request('step')].' đã duyệt rồi!',1);
+                                        }
+                                        break;
+                                    case 2:
+                                        return response_custom($arr_title[request('step')].' đã từ chối duyệt rồi!',1);
+                                        break;
+                                    case 3:
+                                        return response_custom($arr_title[request('step')].' đang chờ duyệt lại!',1);
+                                        break;
                                 }
+                                break;
                             }
                         }
                         if($ok == 1){
@@ -240,7 +277,10 @@ class Driver extends Model
                                 ];
                                 Driver::where('_id', request('item'))->update($update_driver);
                                 // Gửi thông báo đã duyệt cho tài xế
-                                $this->noticApproveDriver($driver);
+                                $data = [
+                                    'template' => 'registrationApproved'
+                                ];
+                                $this->notifyApproveDriver($driver, $data);
                             }
                             return response_custom('Duyệt '.$arr_title[request('step')].' thành công!',0, color_status(1));
                         }else{
@@ -262,24 +302,28 @@ class Driver extends Model
         }
     }
 
-    function noticApproveDriver($driver){
+    function notifyApproveDriver($driver, $data){
         $device_token = Driver_Token::where('driver_id', $driver['_id'])->pluck('device_token');
+        $step_name = !empty($data['step'])  ? $data['step'] : '';
         if($device_token){
             $target_notic = Config('Api_app').'/firebase/api/messaging';
             foreach ($device_token as $item){
                 $data = [
                     'token' => $item,
-                    'template' => 'registrationApproved',
+                    'template' => $data['template'],
                     'arr_replace' => [
                         'title' => [
-                            'full_name' => $driver['full_name']
+                            'full_name' => $driver['full_name'],
+                            'step' => $step_name
                         ],
                         'body' => [
-                            'created_at' => date('H:i d/m/Y')
+                            'created_at' => date('H:i d/m/Y'),
+                            'step' => $step_name,
+                            'reason' => !empty($data['reason']) ? $data['reason'] : ''
                         ]
                     ],
                     'push_data' => [
-                        'type' => 'registrationApproved'
+                        'type' => $data['template']
                     ]
                 ];
                 Http::post($target_notic, $data)->json();
@@ -373,13 +417,27 @@ class Driver extends Model
             }else{
                 $data['location_temporary_residence_ward'] = [];
             }
+
+            // Các bước duyệt tài xế
+            $check = 0;
+            $check_reapprove = 0;
             if(!empty($data['approve'])){
                 $approve = [];
                 foreach ($data['approve'] as $k => $v){
                     $status_info = color_status($v['status']);
                     $approve[$v['step']] = array_merge($data['approve'][$k], $status_info);
+                    if($v['status'] == 0){
+                        $check++;
+                    }elseif ($v['status'] == 3){
+                        $check_reapprove++;
+                    }
                 }
                 $data['approve'] = $approve;
+            }
+            if($check){
+                $data['is_status'] = 0; // Chưa duyệt
+            }elseif($check_reapprove){
+                $data['is_status'] = 3; // Chờ duyệt lại
             }
             if(!empty($data['info']['vehicle_brand'])){
                 $data['info']['vehicle_brand'] = Vehicle_Brand::where('_id', $data['info']['vehicle_brand'])->value('title');
@@ -397,7 +455,7 @@ class Driver extends Model
                 $count_approve_contract = 0;
                 foreach ($data['driver_contract'] as $k => $item){
                     if($item['status'] == 2){
-                        $count_approve_contract++;
+                        $count_approve_contract++; // Tổng hợp đồng đã duyệt
                     }
                     switch ($item['type']){
                         case 'vehicle':
@@ -413,11 +471,10 @@ class Driver extends Model
                     $data['driver_contract'][$k] = $item;
                 }
                 if($count_approve_contract == count($data['driver_contract'])){
-                    $contract_status = 1;
+                    $contract_status = 1; // Tất cả hợp đồng đã được duyệt
                 }
             }
             $data['approve']['contract'] = color_status($contract_status);
-
             return response_custom('',0, $data);
         }else{
             return response_custom('Không tìm thấy tài xế!',1);
@@ -633,6 +690,7 @@ class Driver extends Model
             return response_custom('Không tìm thấy từ khóa',1);
         }
     }
+
     // --------- Duyệt hợp đồng tài xế ---------
     function approveContractDriver(){
         if(request()->method() != 'POST'){
@@ -652,7 +710,7 @@ class Driver extends Model
                                         'is_sign_contract' => 0,
                                         'status' => -1,
                                         'reason' => request('reason'),
-                                        'rejected_at' => mongo_time()
+                                        'updated_at' => mongo_time()
                                     ];
                                     $ok = Driver_Contract::where('_id', request('item'))->update($update);
                                     if($ok){
@@ -685,7 +743,7 @@ class Driver extends Model
                                 $update = [
                                     'is_sign_contract' => 1,
                                     'status' => 2,
-                                    'approved_at' => mongo_time()
+                                    'updated_at' => mongo_time()
                                 ];
                                 $ok = Driver_Contract::where('_id', request('item'))->update($update);
                                 if($ok){
@@ -710,11 +768,48 @@ class Driver extends Model
                                 }
                                 break;
                         }
-                    }if($contract['status'] == 2){
-                        return response_custom('Hợp đồng đã được duyệt rồi!', 1);
+                    }elseif($contract['status'] == 2){
+                        if(request('accept') == 2){
+                            if(!empty(request('reason'))){
+                                $update = [
+                                    'is_sign_contract' => 0,
+                                    'status' => 3,
+                                    'reason' => request('reason'),
+                                    'updated_at' => mongo_time()
+                                ];
+                                $ok = Driver_Contract::where('_id', request('item'))->update($update);
+                                if($ok){
+                                    $device_token_driver = Driver_Token::where('driver_id', $contract['driver_id'])->pluck('device_token');
+                                    if($device_token_driver){
+                                        $target_notic = Config('Api_app').'/firebase/api/messaging';
+                                        foreach ($device_token_driver as $item){
+                                            $data_notic_driver = [
+                                                'token' => $item,
+                                                'template' => 'reapproveContractDriver',
+                                                'arr_replace' => [
+                                                    'body' => [
+                                                        'item_code' => $contract['item_code'],
+                                                        'reason' => request('reason'),
+                                                        'rejected_at' => date('H:i d/m/Y')
+                                                    ]
+                                                ]
+                                            ];
+                                            Http::post($target_notic, $data_notic_driver)->json();
+                                        }
+                                    }
+                                    return response_custom('Yêu cầu duyệt lại hợp đồng thành công!');
+                                }
+                            }else{
+                                return response_custom('Vui lòng nhập lí do yêu cầu duyệt lại hợp đồng!', 1);
+                            }
+                        }else{
+                            return response_custom('Hợp đồng đã được duyệt rồi!', 1);
+                        }
+                    }elseif($contract['status'] == 3){
+                        return response_custom('Hợp đồng đang chờ duyệt lại!', 1);
                     }elseif($contract['status'] == 0){
                         return response_custom('Hợp đồng chưa được kí!', 1);
-                    }elseif ($contract['status'] == -1){
+                    }elseif($contract['status'] == -1){
                         return response_custom('Hợp đồng đã từ chối duyệt!', 1);
                     }
                 }
