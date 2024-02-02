@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Models\Booking\Voucher;
+namespace App\Models\Sky\Voucher;
 
 use App\Models\Booking\Booking\Booking_Method_Payment;
 use App\Models\Sky\User\User_Rank;
@@ -15,14 +15,17 @@ class Voucher extends Model{
         'created_at' => 'timestamp',
         'updated_at' => 'timestamp',
         'date_start' => 'timestamp',
-        'date_end' => 'timestamp'
+        'date_end' => 'timestamp',
+        'exchange_date_begin' => 'timestamp',
+        'exchange_date_end' => 'timestamp',
     ];
 
     function listVoucher(){
         if(request()->method() != 'POST'){
             return response_custom('Sai phương thức!', 1, [],405);
         }
-
+        $voucher_group = Voucher_Group::where('is_show', 1)->where('lang', Config('lang_cur'))->pluck('title', '_id');
+        $voucher_trademark = Voucher_Trademark::where('is_show', 1)->where('lang', Config('lang_cur'))->pluck('title', '_id');
         $data = Voucher::when((request('type') == 'not_used_yet') ?? null, function ($query){
                 $query->where('num_use', 0); // Chưa sử dụng
             })
@@ -30,16 +33,22 @@ class Voucher extends Model{
                 $query->where('num_use', '>', 0)->whereRaw(['$expr' => ['$lt' => ['$num_use', '$max_use']]]); // đang sử dụng
             })
             ->when((request('type') == 'out_of_use') ?? null, function ($query){
-                $query->whereRaw(['$expr' => ['$gte' => ['$num_use', '$max_use']]]); // Hết lượt sử dụng
+                $query->where('num_use', '>', 0)->whereRaw(['$expr' => ['$gte' => ['$num_use', '$max_use']]]); // Hết lượt sử dụng
             })
             ->when((request('type') == 'expired') ?? null, function ($query){
                 $query->whereDate('date_end', '<', date('Y-m-d H:i:s')); // Hết hạn
             })
             ->filter()
             ->orderBy('created_at', 'desc')
-            ->paginate(Config('per_page'), Config('fillable'), 'page', Config('current_page'))
+            ->paginate(Config('per_page') ?? 30)
             ->toArray();
-
+        if(!empty($data['data'])){
+            foreach ($data['data'] as $k => $v){
+                $v['group_id'] = (!empty($v['group_id']) && !empty($voucher_group[$v['group_id']])) ? $voucher_group[$v['group_id']] : '';
+                $v['trademark_id'] = (!empty($v['trademark_id']) && !empty($voucher_trademark[$v['trademark_id']])) ? $voucher_trademark[$v['trademark_id']] : '';
+                $data['data'][$k] = $v;
+            }
+        }
         $data['other']['counter'] = $this->counter();
 
         return response_pagination($data);
@@ -49,14 +58,12 @@ class Voucher extends Model{
         $data['all'] = Voucher::filter()->count();
         $data['not_used_yet'] = Voucher::filter()->where('num_use', 0)->count();
         $data['used'] = Voucher::filter()->where('num_use', '>', 0)->whereRaw(['$expr' => ['$lt' => ['$num_use', '$max_use']]])->count();
-        $data['out_of_use'] = Voucher::filter()->whereRaw(['$expr' => ['$gte' => ['$num_use', '$max_use']]])->count();
+        $data['out_of_use'] = Voucher::filter()->where('num_use', '>', 0)->whereRaw(['$expr' => ['$gte' => ['$num_use', '$max_use']]])->count();
         $data['expired'] = Voucher::filter()->whereDate('date_end', '<', date('Y-m-d H:i:s'))->count();
         return $data;
     }
 
-
-    public static function scopeFilter($query)
-    {
+    public static function scopeFilter($query){
         $query->when(!empty(request('keyword')) ?? null, function ($query){
                 $keyword = explode_custom(request('keyword'),' ');
                 if(!empty($keyword)){
@@ -79,9 +86,11 @@ class Voucher extends Model{
             ->when((request('sub') == 'manage') ?? null, function ($query){
                 $query->where('is_show', 1);
             })
+            ->when(!empty(request('apply_for')) ?? null, function ($query){
+                $query->where('apply_for', request('apply_for'));
+            })
             ->where('lang', Config('lang_cur'));
     }
-
 
     function loadDelivery(){
         if(request()->method() != 'POST'){
@@ -222,6 +231,8 @@ class Voucher extends Model{
             $data['shipping_type'] = !empty($arr_data['shipping_type']) ? array_values(array_unique(array_filter($arr_data['shipping_type']))) : [];
             $data['apply_user'] = $arr_data['apply_user'];
             $data['banner'] = $arr_data['banner'] ?? '';
+            $data['group_id'] = $arr_data['group_id'] ?? '';
+            $data['trademark_id'] = $arr_data['trademark_id'] ?? '';
             $data['method_type'] = !empty($arr_data['method_type']) ? array_values(array_unique(array_filter($arr_data['method_type']))) : [];
             $data['list_user'] = !empty($arr_data['list_user']) ? array_values(array_unique(array_filter($arr_data['list_user']))) : [];
             $data['type_promotion'] = $arr_data['type_promotion'];
@@ -245,6 +256,8 @@ class Voucher extends Model{
             $data['lang'] = 'vi';
             $data['created_at'] = mongo_time();
             $data['updated_at'] = mongo_time();
+            $data['exchange_date_begin'] = !empty($arr_data['exchange_date_begin']) ? convert_date_time($arr_data['exchange_date_begin']) : mongo_time();
+            $data['exchange_date_end'] = !empty($arr_data['exchange_date_end']) ? convert_date_time($arr_data['exchange_date_end']) : mongo_time();
             $data['admin_id'] = Config('admin_id');
             if(empty(request('item'))) { // Thêm mới voucher
                 if (isset($arr_data['total_voucher']) && $arr_data['total_voucher'] > 1) {
@@ -292,6 +305,10 @@ class Voucher extends Model{
             return response_custom('Sai phương thức!', 1, [],405);
         }
 
+        $user_rank_selected = User_Rank::where('is_show',1)->pluck('title','_id');
+        $method_type_selected = Booking_Method_Payment::where('is_show', 1)->pluck('title', '_id');
+        $voucher_group = Voucher_Group::where('is_show', 1)->where('lang', Config('lang_cur'))->pluck('title', '_id');
+        $voucher_trademark = Voucher_Trademark::where('is_show', 1)->where('lang', Config('lang_cur'))->pluck('title', '_id');
         if(!empty(request('item'))){
             $data = Voucher::where('_id', request('item'))->first();
             if($data){
@@ -318,16 +335,20 @@ class Voucher extends Model{
                         }
                     }
                 }
-                $data['user_rank_selected'] = User_Rank::where('is_show',1)->pluck('title','_id');
-                $data['method_type_selected'] = Booking_Method_Payment::where('is_show', 1)->pluck('title', '_id');
+                $data['user_rank_selected'] = $user_rank_selected;
+                $data['method_type_selected'] = $method_type_selected;
+                $data['group_id_selected'] = $voucher_group;
+                $data['trademark_id_selected'] = $voucher_trademark;
                 return response_custom('',0, $data);
             }else{
                 return response_custom('Không tìm thấy dữ liệu', 1);
             }
         }else{
             $data = [];
-            $data['user_rank_selected'] = User_Rank::where('is_show',1)->pluck('title','_id');
-            $data['method_type_selected'] = Booking_Method_Payment::where('is_show', 1)->pluck('title', '_id');
+            $data['user_rank_selected'] = $user_rank_selected;
+            $data['method_type_selected'] = $method_type_selected;
+            $data['group_id_selected'] = $voucher_group;
+            $data['trademark_id_selected'] = $voucher_trademark;
             return response_custom('',0,$data);
         }
     }

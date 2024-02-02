@@ -2,20 +2,13 @@
 
 namespace App\Models\Booking\Service;
 
-use App\Http\Token;
-use Illuminate\Support\Facades\DB;
-use League\Flysystem\Config;
 use MongoDB\Laravel\Eloquent\Model;
-//use App\Models\CustomCasts\jsonToArray;
-//use Illuminate\Support\Facades\Http;
-//use function League\Flysystem\map;
 
 class Service_Price extends Model
 {
     public $timestamps = false;
     protected $connection = 'sky_booking';
     protected $table = 'service_price';
-//    protected $with = ['info','vehicle_type','partner','approve'];
     protected $casts = [
         'created_at' => 'timestamp',
         'updated_at' => 'timestamp',
@@ -167,7 +160,7 @@ class Service_Price extends Model
                         }
                     }
                 }
-                return response_custom('',0,$data);
+                return response_custom('',0, $data);
             }else{
                 return response_custom('Không tìm thấy dữ liệu!',1);
             }

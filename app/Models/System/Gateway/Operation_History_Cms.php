@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Models\Sky\Gateway;
+namespace App\Models\System\Gateway;
 
 use MongoDB\Laravel\Eloquent\Model;
 

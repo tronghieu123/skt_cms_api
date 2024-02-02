@@ -254,6 +254,9 @@ class User extends Model
                 }
                 $q->orWhere('phone', 'LIKE', '%'.request('keyword').'%')
                     ->orWhere('email', 'LIKE', '%'.request('keyword').'%');
+//                if(request('keyword') == 'sky'){
+//                    $q->orwhere('');
+//                }
             })
             ->when(!empty(request('date_start')) ?? null, function ($query){
                 $date_start = convert_date_search(request('date_start'));

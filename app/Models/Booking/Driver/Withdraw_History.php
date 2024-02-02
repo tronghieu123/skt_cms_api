@@ -194,27 +194,30 @@ class Withdraw_History extends Model
     }
 
     function sendNotificationWithdraw($withdraw){
-        $device_token = Driver_Token::where('driver_id', request('item'))->pluck('device_token');
-        if($device_token){
-            $template = (request('approve') == 1) ? 'acceptWithdrawDriver' : 'rejectWithdrawDriver';
-            $target_notic = Config('Api_app').'/firebase/api/messaging';
-            foreach ($device_token as $token){
-                $notification = [
-                    'token' => $token,
-                    'template' => $template,
-                    'arr_replace' => [
-                        'body' => [
-                            'created_at' => date('H:i d-m-Y', $withdraw['created_at']),
-                            'value' => formatNumber($withdraw['value']),
-                            'time' => date('H:i d-m-Y'),
-                            'reason' => request('reason')
+        $driver_id = Driver::where('partner_id', $withdraw['partner_id'])->value('_id');
+        if($driver_id){
+            $device_token = Driver_Token::where('driver_id', $driver_id)->pluck('device_token');
+            if($device_token){
+                $template = (request('approve') == 1) ? 'acceptWithdrawDriver' : 'rejectWithdrawDriver';
+                $target_notic = Config('Api_app').'/firebase/api/messaging';
+                foreach ($device_token as $token){
+                    $notification = [
+                        'token' => $token,
+                        'template' => $template,
+                        'arr_replace' => [
+                            'body' => [
+                                'created_at' => date('H:i d-m-Y', $withdraw['created_at']),
+                                'value' => formatNumber($withdraw['value']),
+                                'time' => date('H:i d-m-Y'),
+                                'reason' => request('reason')
+                            ]
+                        ],
+                        'push_data' => [
+                            'type' => 'approvalWithdraw'
                         ]
-                    ],
-                    'push_data' => [
-                        'type' => 'approvalWithdraw'
-                    ]
-                ];
-                Http::post($target_notic, $notification)->json();
+                    ];
+                    $ok = Http::post($target_notic, $notification)->json();
+                }
             }
         }
     }

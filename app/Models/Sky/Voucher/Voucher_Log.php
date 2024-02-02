@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Models\Booking\Voucher;
+namespace App\Models\Sky\Voucher;
 
 use MongoDB\Laravel\Eloquent\Model;
 use App\Models\Booking\Booking\Booking;

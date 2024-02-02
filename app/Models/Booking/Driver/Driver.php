@@ -3,7 +3,7 @@
 namespace App\Models\Booking\Driver;
 
 use App\Http\Token;
-use App\Models\System\Booking\Driver_Contract_Template;
+use App\Models\System\Driver\Driver_Contract_Template;
 use MongoDB\Laravel\Eloquent\Model;
 use Illuminate\Support\Facades\Http;
 

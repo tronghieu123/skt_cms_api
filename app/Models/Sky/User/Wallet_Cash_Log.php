@@ -83,6 +83,9 @@ class Wallet_Cash_Log extends Model{
                 $date_end = convert_date_search(request('date_end'));
                 $query->whereDate("created_at", "<=", $date_end);
             })
+            ->when(!empty(request('item')), function ($query){
+                $query->where('user_id', request('item'));
+            })
             ->where('is_show', 1)
             ->where('is_status', 1);
     }

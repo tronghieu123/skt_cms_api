@@ -12,11 +12,9 @@ use function Pest\Mixins\export;
 class Location extends Model
 {
     public $timestamps = false;
-
     protected $connection = 'sky';
 
-    function getLocation()
-    {
+    function getLocation(){
         $db = DB::connection('sky');
         $country = !empty(request('country')) ? request('country') : 'vi';
         if(request()->has('district')){ // Lấy danh sách phường xã con

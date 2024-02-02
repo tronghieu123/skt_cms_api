@@ -4,6 +4,7 @@ namespace App\Models\Booking\Shared_Rate;
 
 use App\Http\Token;
 use App\Models\Booking\Driver\Driver_Token;
+use App\Models\Booking\Driver\History_Wallet_Sky;
 use App\Models\Sky\User\User;
 use App\Models\Sky\User\DeviceToken;
 use App\Models\Sky\User\Wallet_Point_Log;
@@ -14,9 +15,6 @@ use App\Models\Booking\Driver\Partner;
 use App\Models\Booking\Booking\Booking;
 use App\Models\Booking\Booking\Setting;
 
-use App\Models\Sky\Partner\History_Wallet_Sky;
-
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use MongoDB\Laravel\Eloquent\Builder;
 use MongoDB\Laravel\Eloquent\Model;
@@ -186,7 +184,7 @@ class Shared_Rate_Customer extends Model{
                                         $ok = Shared_Rate_Customer::where('_id', request('item'))->update($update);
                                         if($ok){
                                             if($user_id){
-                                                $this->send_notic($user_id, request('reason'));
+                                                $this->send_notify($user_id, request('reason'));
                                             }
                                             return response_custom('Từ chối đánh giá thành công!');
                                         }
@@ -214,6 +212,8 @@ class Shared_Rate_Customer extends Model{
                                     $ok = Shared_Rate_Customer::where('_id', request('item'))->update($update);
                                     if($ok){
                                         $this->bonus($data, $arr_bonus, $setting);
+                                        $target = 'booking/api/dispatch_driverstar';
+                                        _call_api_get($target, ['id' => request('item')]);
                                         return response_custom('Duyệt đánh giá thành công!');
                                     }
                                     break;
@@ -341,7 +341,7 @@ class Shared_Rate_Customer extends Model{
         }
     }
 
-    function send_notic($user, $reason){
+    function send_notify($user, $reason){
         $device_token = DeviceToken::where('user_id', $user)->pluck('device_token');
         if($device_token){
             $target_notic = Config('Api_app').'/firebase/api/messaging';

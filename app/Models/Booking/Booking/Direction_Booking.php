@@ -282,8 +282,10 @@ class Direction_Booking extends Model
             ->when(request('type') == 'schedule' ?? null, function ($query) { // Hủy đơn
                 $query->where([
                     'is_show' => 1,
-                ])->where('schedule_time', '!=', '')
+                ])->where('is_status', '!=', 1)
+                    ->where('schedule_time', '!=', '')
                     ->where('schedule_time', '!=', 0)
+                    ->where('schedule_time', '>=', now())
                     ->whereNotNull('schedule_time');
             })
             ->when(request('keyword') ?? null, function ($query) { // Hủy đơn
@@ -431,12 +433,12 @@ class Direction_Booking extends Model
                         }
                         if (!empty($arrTmp)) {
                             $update_driver['count_running_booking'] = count($arrTmp);
-                            $update_driver['list_running_booking'] = implode(',', $arrTmp);
+                            $update_driver['list_running_booking'] = $arrTmp;
                         } else {
-                            $update_driver['list_running_booking'] = "";
+                            $update_driver['list_running_booking'] = [];
                             $update_driver['count_running_booking'] = 0;
                         }
-                        if ($update_driver['list_running_booking'] == "") {
+                        if ($update_driver['list_running_booking'] == []) {
                             $update_driver['is_running_delivery'] = 0;
                             $update_driver['count_running_booking'] = 0;
                         }

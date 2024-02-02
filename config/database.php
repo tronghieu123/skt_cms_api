@@ -110,7 +110,7 @@ return [
         ],
         'sky_gateway' => [
             'driver' => 'mongodb',
-            'host' => '127.0.0.1',
+            'host' => 'sd108208.server.idn.vn',
             'port' => 27017,
             'database' => 'sky_gateway',
             'username' => 'skytech',

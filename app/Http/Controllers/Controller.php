@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Sky\Gateway\Operation_History_Cms;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Routing\Controller as BaseController;
@@ -29,6 +30,7 @@ class Controller extends BaseController
         if(!in_array(request('root'), ['sky','report','system','booking','shopping','fnb','coach','hotel','cleaning','airplaneticket','englishpractice','smarthome'])){
             return response_custom('Không tìm thấy hành động!', 1);
         }
+        (new Operation_History_Cms())->log(); // Lưu log gọi api
 
         $root = (request('mod') == 'config' && in_array(request('act'), ['menu','location'])) ? 'sky' : request('root');
         $check = DB::table('gateway')
@@ -66,7 +68,6 @@ class Controller extends BaseController
                 $check_ok = 1;
             }
         }
-
         if($check_ok){
             if(!Config('database.connections.'.$check['database'])){
                 return response_custom('Không tìm thấy database!', 1);

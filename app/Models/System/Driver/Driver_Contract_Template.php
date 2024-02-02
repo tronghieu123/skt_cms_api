@@ -1,8 +1,7 @@
 <?php
 
-namespace App\Models\System\Booking;
+namespace App\Models\System\Driver;
 use MongoDB\Laravel\Eloquent\Model;
-use App\Models\CustomCasts\jsonToArray; 
 
 use App\Models\Booking\Driver\Vehicle;
 
@@ -21,7 +20,7 @@ class Driver_Contract_Template extends Model
         switch (request()->type) {
             case 'vehicle':
                 $data = Vehicle::pluck('title','_id');
-                break;            
+                break;
             default:
                 $data = [];
                 break;

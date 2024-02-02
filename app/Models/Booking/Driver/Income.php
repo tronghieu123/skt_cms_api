@@ -134,9 +134,6 @@ class Income extends Model{
 
     public function income()
     {
-        $time = '30-01-2024 08:56:00';
-        $mongo_time = convert_date_time($time);
-        die;
         if (request()->method() != 'POST') {
             return response_custom('Sai phương thức!', 1, [], 405);
         }

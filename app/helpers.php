@@ -29,7 +29,7 @@ if (!function_exists('mongo_time')) {
 }
 
 if (!function_exists('convert_date')) {
-    function convert_date($date){      
+    function convert_date($date){
         $timezone = request()->header('timezone') ?? 'Asia/Ho_Chi_Minh';
         $temp = Carbon\Carbon::parse($date, $timezone)->setTimezone('UTC')->getTimestamp();
         return mongo_time($temp);
@@ -622,6 +622,9 @@ if (!function_exists('get_arr_in')) {
                             case 'datetimepicker':
                                 $arr_in[$k] = convert_date_time($arr_in[$k]);
                                 break;
+                            case 'datemonthpicker':
+                                $arr_in[$k] = str_replace('-','/', $arr_in[$k]);
+                                break;
                             case 'select':
                                 if (isset($v['multiple']) && $v['multiple'] == true) {
                                     $arr_in[$k] = (!empty($arr_in[$k]) && is_array($arr_in[$k])) ? array_values(array_unique(array_filter($arr_in[$k]))) : [];
@@ -810,13 +813,9 @@ if (!function_exists('formatData')) {
                         break;
                 }
                 if (!empty($replace_data) && !empty($replace_data[$k1])) {
-                    if(isset($replace_data[$k1]['multiple']) && $replace_data[$k1]['multiple'] == true){
+                    if(isset($replace_data[$k1]['multiple']) && $replace_data[$k1]['multiple'] == 1){
                         if(!empty($data[$k][$k1]) && is_array($data[$k][$k1])){
-                            $tmp = [];
-                            foreach ($data[$k][$k1] as $item){
-                                $tmp[] = $replace_data[$k1][$item];
-                            }
-                            $data[$k][$k1] = implode(', ', $tmp);
+                            $data[$k][$k1] = implode(', ', (array_intersect_key($replace_data[$k1], array_flip($data[$k][$k1]))));
                         }
                     }else{
                         if(!empty($replace_data[$k1]['multiple_select'])){
@@ -955,6 +954,11 @@ if (!function_exists('_call_api_get')) {
             'Authorization' =>  'Bearer ' . $token,
             'lang' => request()->header('lang')
         ];
+        $path = parse_url((request()->api_gateway ?? config('app.gateway_url')) . $url);
+        if(!empty($path['query'])){
+            parse_str($path['query'], $query);
+            $params = array_merge($params, $query);
+        }
         $res = Illuminate\Support\Facades\Http::withHeaders($header)
             ->get(Config('Api_app') . '/' . $url, $params)
             ->body();
@@ -964,7 +968,7 @@ if (!function_exists('_call_api_get')) {
         }
         $res = json_decode($res);
         if (isset($res->code) && $res->code == 200) {
-            return (array)$res->data;
+            return (array)$res;
         }
         if (isset($res->code) && $res->code == 403) {
             return (array)$res;
