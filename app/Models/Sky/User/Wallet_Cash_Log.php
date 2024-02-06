@@ -25,20 +25,21 @@ class Wallet_Cash_Log extends Model{
             return response_custom('Sai phương thức!', 1, [],405);
         }
 
-        $data = Wallet_Cash_Log::with('user_info')
-            ->filter()
+        $data = Wallet_Cash_Log::filter()
+            ->with('user_info')
             ->orderBy('created_at', 'desc')
             ->paginate(Config('per_page'), Config('fillable'), 'page', Config('current_page'))
             ->toArray();
         $data['other']['type'] = Wallet_Cash_Type::where('is_show', 1)->get(['title','bg_color','text_color','class','name_action','description'])->keyBy('name_action');
         $data['other']['status'] = Wallet_Cash_Status::where('is_show', 1)->get(['title','bg_color','text_color','class','value'])->keyBy('value');
-        $data['other']['minus_total'] = Wallet_Cash_Log::filter()->where('value_type', -1)->sum('value');
-        $data['other']['add_total'] = Wallet_Cash_Log::filter()->where('value_type', 1)->sum('value');
+        $data['other']['minus_total'] = Wallet_Cash_Log::filter()->where('value_type', -1)->where('is_status', 1)->sum('value');
+        $data['other']['add_total'] = Wallet_Cash_Log::filter()->where('value_type', 1)->where('is_status', 1)->sum('value');
 
         $arr_replace_root = ['bank_name','method','created_at','item_code'];
         if(!empty($data['data'])){
             foreach ($data['data'] as $k => $v){
-                if(!in_array($v['type'], ['admin_add','admin_minus'])){
+                $arr_replace = $arr_value = [];
+                if(!in_array($v['type'], ['admin_add', 'admin_minus'])){
                     $transaction_info = DB::connection($v['dbname'])->collection($v['dbtable'])->where('_id', $v['dbtableid'])->first();
                     if($transaction_info){
                         $transaction_info['created_at'] = date('H:i d-m-Y', parseTimestamp($transaction_info['created_at']));
@@ -62,7 +63,8 @@ class Wallet_Cash_Log extends Model{
     }
 
     function scopeFilter($query){
-        $query->when(!empty(request('keyword')) ?? null, function ($query){
+        $query
+            ->when(!empty(request('keyword')) ?? null, function ($query){
                 $keyword = explode_custom(request('keyword'),' ');
                 $query->orWhere('item_code', 'LIKE', '%' .request('keyword') . '%')
                     ->orWhereHas('user_info', function($q) use($keyword) {
@@ -84,10 +86,9 @@ class Wallet_Cash_Log extends Model{
                 $query->whereDate("created_at", "<=", $date_end);
             })
             ->when(!empty(request('item')), function ($query){
-                $query->where('user_id', request('item'));
+                $query->where('user_id', request('item')); // user_id
             })
-            ->where('is_show', 1)
-            ->where('is_status', 1);
+            ->where('is_show', 1);
     }
 
     // Cộng trừ tiền user

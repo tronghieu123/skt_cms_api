@@ -316,7 +316,7 @@ class Controller extends BaseController
                     })
                     ->orderBy('show_order', 'desc')
                     ->orderBy('created_at', 'desc')
-                    ->paginate(Config('per_page'), Config('fillable'), 'page', Config('current_page'))->toArray();
+                    ->paginate(Config('per_page'), Config('fillable'))->toArray();
                 $data['data'] = formatData($data['data'], $arr_convert, $replace_data);
                 $mess = $data['data']['mess'];
                 unset($data['data']['mess']);
@@ -341,7 +341,7 @@ class Controller extends BaseController
                     })
                     ->orderBy('show_order', 'desc')
                     ->orderBy('created_at', 'desc')
-                    ->paginate(Config('per_page'), Config('fillable'), 'page', Config('current_page'))->toArray();
+                    ->paginate(Config('per_page'), Config('fillable'))->toArray();
                 $data['data'] = formatData($data['data'], $arr_convert, $replace_data);
                 $mess = $data['data']['mess'];
                 unset($data['data']['mess']);

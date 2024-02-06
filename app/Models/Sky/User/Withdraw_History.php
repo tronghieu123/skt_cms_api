@@ -39,6 +39,7 @@ class Withdraw_History extends Model{
             ->paginate(Config('per_page'), Config('fillable'), 'page', Config('current_page'))
             ->toArray();
         $data['other']['status'] = History_Wallet_Sky_Status::where('is_show', 1)->get(['title','bg_color','text_color','class','value'])->keyBy('value');
+        $data['other']['total_withdraw'] = Withdraw_History::filter()->where('is_status', 1)->sum('value');
         $data['other']['counter'] = $this->counter();
 
         return response_pagination($data);
@@ -53,8 +54,7 @@ class Withdraw_History extends Model{
     }
 
     function scopeFilter($query){
-        $query->where('type', 'user')
-            ->where('is_show', 1)
+        $query
             ->when(!empty(request('keyword')) ?? null, function ($query){
                 $keyword = explode_custom(request('keyword'),' ');
                 $query->orWhere('item_code', 'LIKE', '%' .request('keyword') . '%')
@@ -78,6 +78,9 @@ class Withdraw_History extends Model{
                     }
                 );
             })
+            ->when(!empty(request('item')), function ($query){
+                $query->where('partner_id', request('item')); // user_id
+            })
             ->when(!empty(request('date_start')) ?? null, function ($query){
                 $date_start = convert_date_search(request('date_start'));
                 $query->whereDate("created_at", ">=", $date_start);
@@ -85,7 +88,9 @@ class Withdraw_History extends Model{
             ->when(!empty(request('date_end')) ?? null, function ($query){
                 $date_end = convert_date_search(request('date_end'));
                 $query->whereDate("created_at", "<=", $date_end);
-            });
+            })
+            ->where('type', 'user')
+            ->where('is_show', 1);
     }
 
     // Xét duyệt rút tiền của khách hàng

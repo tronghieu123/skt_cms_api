@@ -29,7 +29,9 @@ class Recharge_History extends Model
         if(request()->method() != 'POST'){
             return response_custom('Sai phương thức!', 1, [],405);
         }
-
+        $method_recharge = Method_Recharge::where('is_show', 1)
+            ->where('lang', Config('lang_cur'))
+            ->pluck('title', 'name_action');
         $data = Recharge_History::with(['driver' => function ($query) {
                 $query->with(['partner' => function ($partner){
                     $partner->select('phone', 'full_name', 'email');
@@ -40,12 +42,17 @@ class Recharge_History extends Model
                     ->without(['vehicle_type', 'approve'])
                     ->select('partner', 'partner_id');
             }])
-            ->with('methodRecharge')
             ->filter()
             ->orderBy('created_at', 'desc')
-            ->paginate(Config('per_page'), Config('fillable'), 'page', Config('current_page'))
+            ->paginate(Config('per_page'), Config('fillable'))
             ->toArray();
+        if(!empty($data['data'])){
+            foreach ($data['data'] as $k => $v){
+                $data['data'][$k]['method_recharge'] = !empty($method_recharge[$v['method']]) ? $method_recharge[$v['method']] : '';
+            }
+        }
         $data['other']['status'] = History_Wallet_Sky_Status::where('is_show', 1)->get(['title','bg_color','text_color','class','value'])->keyBy('value');
+        $data['other']['total_recharge'] = Recharge_History::filter()->sum('value');
         // đếm số lượng các tab
 //        $data['other']['counter'] = $this->counter();
 
@@ -61,10 +68,7 @@ class Recharge_History extends Model
 //    }
 
     public static function scopeFilter($query){
-        $query->where('type', 'driver')
-            ->where('is_show', 1)
-            ->where('is_status', 1)
-            ->when(!empty(request('keyword')) ?? null, function ($query){
+        $query->when(!empty(request('keyword')) ?? null, function ($query){
                 $keyword = explode_custom(request('keyword'),' ');
                 $query->whereHas('driver.partner', function($q) use($keyword) {
                     if($keyword){
@@ -76,6 +80,9 @@ class Recharge_History extends Model
                         ->orWhere('email', 'LIKE', '%'.request('keyword').'%');
                 })->orWhere('item_code', 'LIKE', '%'.request('keyword').'%');
             })
+            ->when(!empty(request('item')), function ($query){
+                $query->where('partner_id', request('item')); // partner id
+            })
             ->when(!empty(request('date_start')) ?? null, function ($query){
                 $date_start = convert_date_search(request('date_start'));
                 $query->whereDate("created_at", ">=", $date_start);
@@ -83,6 +90,9 @@ class Recharge_History extends Model
             ->when(!empty(request('date_end')) ?? null, function ($query){
                 $date_end = convert_date_search(request('date_end'));
                 $query->whereDate("created_at", "<=", $date_end);
-            });
+            })
+            ->where('type', 'driver')
+            ->where('is_show', 1)
+            ->where('is_status', 1);
     }
 }

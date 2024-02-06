@@ -15,7 +15,7 @@ class Wallet_Point_Log extends Model{
     ];
 
     public function user_info(){
-        return $this->hasOne(User::class, '_id', 'user_id')->select(['full_name','phone','picture']);
+        return $this->hasOne(User::class, '_id', 'user_id')->select('full_name','phone','picture');
     }
 
     // Danh sách user
@@ -23,15 +23,15 @@ class Wallet_Point_Log extends Model{
         if(request()->method() != 'POST'){
             return response_custom('Sai phương thức!', 1, [],405);
         }
-        $data = Wallet_Point_Log::with('user_info')
-            ->filter()
+        $data = Wallet_Point_Log::filter()
+            ->with('user_info')
             ->orderBy('created_at', 'desc')
             ->paginate(Config('per_page'), Config('fillable'), 'page', Config('current_page'))
             ->toArray();
         $data['other']['type'] = Wallet_Point_Type::get(['title','bg_color','text_color','class','name_action','description'])->keyBy('name_action');
         $data['other']['status'] = Wallet_Point_Status::get(['title','bg_color','text_color','class','value'])->keyBy('value');
-        $data['other']['minus_total'] = Wallet_Point_Log::filter()->where('value_type', -1)->sum('value');
-        $data['other']['add_total'] = Wallet_Point_Log::filter()->where('value_type', 1)->sum('value');
+        $data['other']['minus_total'] = Wallet_Point_Log::filter()->where('is_status', 1)->where('value_type', -1)->sum('value');
+        $data['other']['add_total'] = Wallet_Point_Log::filter()->where('is_status', 1)->where('value_type', 1)->sum('value');
 
         $arr_replace_root = ['bank_name','method','created_at','item_code','content'];
         if(!empty($data['data'])){
@@ -61,18 +61,19 @@ class Wallet_Point_Log extends Model{
 
     public static function scopeFilter($query)
     {
-        $query->when(!empty(request('keyword')) ?? null, function ($query){
-            $keyword = explode_custom(request('keyword'),' ');
-            $query->whereHas('user_info', function($q) use($keyword){
-                if($keyword){
-                    foreach ($keyword as $item){
-                        $q->orWhere('full_name', 'LIKE', '%' . $item . '%');
+        $query
+            ->when(!empty(request('keyword')) ?? null, function ($query){
+                $keyword = explode_custom(request('keyword'),' ');
+                $query->whereHas('user_info', function($q) use($keyword){
+                    if($keyword){
+                        foreach ($keyword as $item){
+                            $q->orWhere('full_name', 'LIKE', '%'.$item.'%');
+                        }
                     }
-                }
-                $q->orWhere('phone', 'LIKE', '%'.request('keyword').'%')
-                    ->orWhere('email', 'LIKE', '%'.request('keyword').'%');
-            })->orWhere('item_code', 'LIKE', '%'.request('keyword').'%');
-        })
+                    $q->orWhere('phone', 'LIKE', '%'.request('keyword').'%')
+                        ->orWhere('email', 'LIKE', '%'.request('keyword').'%');
+                })->orWhere('item_code', 'LIKE', '%'.request('keyword').'%');
+            })
             ->when(!empty(request('date_start')) ?? null, function ($query){
                 $date_start = convert_date_search(request('date_start'));
                 $query->whereDate("created_at", ">=", $date_start);
@@ -82,10 +83,9 @@ class Wallet_Point_Log extends Model{
                 $query->whereDate("created_at", "<=", $date_end);
             })
             ->when(!empty(request('item')) ?? null, function ($query){
-                $query->where('user_id', request('item'));
+                $query->where('user_id', request('item')); // user_id
             })
-            ->where('is_show', 1)
-            ->where('is_status', 1);
+            ->where('is_show', 1);
     }
 
     // Cộng trừ điểm user

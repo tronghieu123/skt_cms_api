@@ -61,6 +61,17 @@ class Driver extends Model
             ->orderBy('created_at', 'desc')
             ->paginate(Config('per_page'), Config('fillable'), 'page', Config('current_page'))
             ->toArray();
+        if(!empty($data['data'])){
+            foreach ($data['data'] as $k => $v){
+                $partner_id = !empty($v['partner']['_id']) ? $v['partner']['_id'] : '';
+                if($partner_id){
+                    $v['total_wallet_cash'] = History_Wallet_Sky::where('partner_id', $partner_id)->where('is_show', 1)->where('is_status', 1)->where('value_type', 1)->sum('value');
+                    $v['total_withdraw'] = Withdraw_History::where('partner_id', $partner_id)->where('is_show', 1)->where('type', 'driver')->where('is_status', 1)->sum('value');
+                    $v['total_recharge'] = Recharge_History::where('partner_id', $partner_id)->where('is_show', 1)->where('type', 'driver')->where('is_status', 1)->sum('value');
+                    $data['data'][$k] = $v;
+                }
+            }
+        }
         $data['other']['counter'] = $this->tabListDriver();
         return response_pagination($data);
     }
@@ -235,7 +246,7 @@ class Driver extends Model
                                                 ];
                                                 Driver_Register_Step::where('_id', $k)->update($update_step);
                                                 $update_driver = [
-                                                    'is_approve' => 0,
+                                                    'is_approve' => 3,
                                                     'updated_at' => mongo_time()
                                                 ];
                                                 Driver::where('_id', request('item'))->update($update_driver);

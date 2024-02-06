@@ -232,6 +232,15 @@ class User extends Model
             ->orderBy('created_at', 'desc')
             ->paginate(Config('per_page'), Config('fillable'), 'page', Config('current_page'))
             ->toArray();
+        if(!empty($data['data'])){
+            foreach ($data['data'] as $k => $v){
+                $v['total_wallet_cash'] = Wallet_Cash_Log::where('user_id', $v['_id'])->where('is_show', 1)->where('is_status', 1)->where('value_type', 1)->sum('value');
+                $v['total_point'] = Wallet_Point_Log::where('user_id', $v['_id'])->where('is_show', 1)->where('is_status', 1)->where('value_type', 1)->sum('value');
+                $v['total_withdraw'] = Withdraw_History::where('partner_id', $v['_id'])->where('is_show', 1)->where('type', 'user')->where('is_status', 1)->sum('value');
+                $v['total_recharge'] = Recharge_History::where('partner_id', $v['_id'])->where('is_show', 1)->where('type', 'user')->where('is_status', 1)->sum('value');
+                $data['data'][$k] = $v;
+            }
+        }
         $data['other']['rank'] = User_Rank::where('is_show', 1)->orderBy('order_level','asc')->pluck('title','_id');
         $data['other']['counter'] = $this->tabListUser();
         return response_pagination($data);

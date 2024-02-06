@@ -41,12 +41,13 @@ class History_Wallet_Sky extends Model{
             ->toArray();
         $data['other']['type'] = History_Wallet_Sky_Type::where('is_show', 1)->get(['title','bg_color','text_color','class','name_action','description'])->keyBy('name_action');
         $data['other']['status'] = History_Wallet_Sky_Status::where('is_show', 1)->get(['title','bg_color','text_color','class','value'])->keyBy('value');
-        $data['other']['minus_total'] = History_Wallet_Sky::filter()->where('value_type', -1)->where('is_status', '>', 0)->sum('value');
-        $data['other']['add_total'] = History_Wallet_Sky::filter()->where('value_type', 1)->where('is_status', '>', 0)->sum('value');
+        $data['other']['minus_total'] = History_Wallet_Sky::filter()->where('value_type', -1)->where('is_status', 1)->sum('value');
+        $data['other']['add_total'] = History_Wallet_Sky::filter()->where('value_type', 1)->where('is_status', 1)->sum('value');
 
         $arr_replace_root = ['bank_name','method','created_at','item_code'];
         if(!empty($data['data'])){
             foreach ($data['data'] as $k => $v){
+                $arr_replace = $arr_value = [];
                 if(!in_array($v['type'], ['admin_add','admin_minus'])){
                     $transaction_info = DB::connection($v['dbname'])->collection($v['dbtable'])->where('_id', $v['dbtableid'])->first();
                     if($transaction_info){
@@ -71,18 +72,19 @@ class History_Wallet_Sky extends Model{
     }
 
     public static function scopeFilter($query){
-        $query->when(!empty(request('keyword')) ?? null, function ($query){
-            $keyword = explode_custom(request('keyword'),' ');
-                $query->whereHas('driver', function($q) use($keyword){
-                    if($keyword){
-                        foreach ($keyword as $item){
-                            $q->orWhere('full_name', 'LIKE', '%' . $item . '%');
+        $query
+            ->when(!empty(request('keyword')) ?? null, function ($query){
+                $keyword = explode_custom(request('keyword'),' ');
+                    $query->whereHas('driver.partner', function($q) use($keyword){
+                        if($keyword){
+                            foreach ($keyword as $item){
+                                $q->orWhere('full_name', 'LIKE', '%' . $item . '%');
+                            }
                         }
-                    }
-                    $q->orWhere('phone', 'LIKE', '%'.request('keyword').'%')
-                        ->orWhere('email', 'LIKE', '%'.request('keyword').'%');
-                })->orWhere('item_code', 'LIKE', '%'.request('keyword').'%');
-            })
+                        $q->orWhere('phone', 'LIKE', '%'.request('keyword').'%')
+                            ->orWhere('email', 'LIKE', '%'.request('keyword').'%');
+                    })->orWhere('item_code', 'LIKE', '%'.request('keyword').'%');
+                })
             ->when(!empty(request('date_start')) ?? null, function ($query){
                 $date_start = convert_date_search(request('date_start'));
                 $query->whereDate("created_at", ">=", $date_start);

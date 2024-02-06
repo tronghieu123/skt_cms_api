@@ -35,7 +35,7 @@ class Direction_Booking extends Model
         'schedule_time' => 'timestamp'
     ];
     protected $with = ['status_info', 'driver_info', 'method_info', 'customer_rated', 'driver_rated'];
-    protected $appends = ['vehicle_type', 'user_cancel_fullname', 'reason'];
+    protected $appends = ['vehicle_type', 'user_cancel_fullname'];
 
     public function customer_rated()
     {
@@ -69,12 +69,12 @@ class Direction_Booking extends Model
         return $this->hasOne(Method_Payment::class, '_id', 'method')->withCasts(['created_at' => 'timestamp', 'updated_at' => 'timestamp'])->select('title', 'picture');
     }
 
-    public function getReasonAttribute()
+    public function getReasonAttribute($value)
     {
-        $output = $this->reason ?? '';
+        $output = $value ?? '';        
         if(!empty($this->reason_id)) {
             $output = Booking_Reason_Cancel::find($this->reason_id)->value('title');
-        }
+        }        
         return $output;
     }
 
@@ -291,7 +291,7 @@ class Direction_Booking extends Model
             ->when(request('keyword') ?? null, function ($query) { // Hủy đơn
                 $query->where(function ($q) {
                     $q->where('_id', request('keyword'))
-                        ->orWhere('item_code', request('keyword'))
+                        ->orWhere('item_code', 'like', '%' . request('keyword') . '%')
                         ->orWhere('full_name', 'like', '%' . request('keyword') . '%')
                         ->orWhere('phone', 'like', '%' . request('keyword') . '%')
                         ->orWhere('driver_full_name', 'like', '%' . request('keyword') . '%')
@@ -366,6 +366,7 @@ class Direction_Booking extends Model
         //     /**** Mở hoàn tiền cho khách nếu thanh toán bằng ví ****/
         //     $ok = Booking::where(["_id" => $infoBooking['_id']])->update($update);
         // }
+        
         $update = [
             'is_cancel'	=> 1,
             'is_status' => -1,
