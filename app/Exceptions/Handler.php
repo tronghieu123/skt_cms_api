@@ -32,39 +32,19 @@ class Handler extends ExceptionHandler
     public function render($request, Throwable $e)
     {
         $response = parent::render($request, $e);
-        // switch ($response->status()) {
-        //     case 403:
-        //         return response()->json([
-        //             'code' => $response->status(),
-        //             'message' => 'Forbidden'
-        //         ], $response->status());
 
-        //     case 404:
-        //         return response()->json([
-        //             'code' => $response->status(),
-        //             'message' => 'Not found'
-        //         ], $response->status());
-
-        //     case 405:
-        //         return response()->json([
-        //             'code' => $response->status(),
-        //             'message' => 'Method Not Allowed.'
-        //         ], $response->status());
-
-        //     case 419:
-        //         return response()->json([
-        //             'code' => 405,
-        //             'message' => 'Method Not Allowed.'
-        //         ], Response::HTTP_METHOD_NOT_ALLOWED);
-        //         break;
-
-        //     default:
-        //         break;
-        // }
-        return response()->json([
-            'code' => $response->status(),
-            'message' => $e->getMessage(),
-            'trace' => $e->getTrace(),
-        ], $response->status());
+        if ($response->status() == 500) {
+            return response()->json([
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTrace(),
+            ], 500);
+        } else {
+            return response()->json([
+                'code' => $response->status(),
+                'message' => $e->getMessage(),
+            ], $response->status());
+        }
     }
 }

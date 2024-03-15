@@ -4,6 +4,8 @@ namespace App\Models\Booking\Driver;
 
 use App\Http\Token;
 use App\Models\System\Driver\Driver_Contract_Template;
+//use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use MongoDB\Laravel\Eloquent\Model;
 use Illuminate\Support\Facades\Http;
 
@@ -47,7 +49,7 @@ class Driver extends Model
         if(request()->method() != 'POST'){
             return response_custom('Sai phương thức!', 1, [],405);
         }
-
+//        DB::connection($this->connection)->enableQueryLog();
         $data = Driver::when(request('type') == 'pending' ?? null, function ($query){
                 $query->where('is_approve', 0)->orWhere('is_approve', null); // Đợi duyệt
             })
@@ -61,6 +63,8 @@ class Driver extends Model
             ->orderBy('created_at', 'desc')
             ->paginate(Config('per_page'), Config('fillable'), 'page', Config('current_page'))
             ->toArray();
+//        $q = DB::connection($this->connection)->getQueryLog();
+//        dd($q);
         if(!empty($data['data'])){
             foreach ($data['data'] as $k => $v){
                 $partner_id = !empty($v['partner']['_id']) ? $v['partner']['_id'] : '';
@@ -86,24 +90,28 @@ class Driver extends Model
 
     public static function scopeFilter($query)
     {
-        $query->when(!empty(request('keyword')) ?? null, function ($q){
-                $keyword = explode_custom(request('keyword'), ' ');
-                if($keyword){
+        $query->when(!empty(request('keyword')), function ($q){
+            $keyword = explode_custom(request('keyword'), ' ');
+            if($keyword){
+                $q->where(function($q1) use ($keyword){
                     foreach ($keyword as $item){
-                        $q->orWhere('full_name', 'LIKE', '%'.$item.'%');
+                        $q1->orWhere(function($q2) use ($item){
+                            $q2->where('full_name', 'LIKE', '%'.$item.'%')->orWhere('full_name', 'LIKE', '%'.Str::ascii($item).'%');
+                        });
                     }
-                }
-                $q->orWhere('phone', 'LIKE', '%'.request('keyword').'%')
-                ->orWhere('email', 'LIKE', '%'.request('keyword').'%');
-            })
-            ->when(!empty(request('date_start')) ?? null, function ($query){
-                $date_start = convert_date_search(request('date_start'));
-                $query->whereDate("created_at", ">=", $date_start);
-            })
-            ->when(!empty(request('date_end')) ?? null, function ($query){
-                $date_end = convert_date_search(request('date_end'));
-                $query->whereDate("created_at", "<=", $date_end);
-            });
+                });
+            }
+            $q->orWhere('phone', 'LIKE', '%'.request('keyword').'%')
+            ->orWhere('email', 'LIKE', '%'.request('keyword').'%');
+        })
+        ->when(!empty(request('date_start')), function ($query){
+            $date_start = convert_date_search(request('date_start'));
+            $query->whereDate("created_at", ">=", $date_start);
+        })
+        ->when(!empty(request('date_end')), function ($query){
+            $date_end = convert_date_search(request('date_end'));
+            $query->whereDate("created_at", "<=", $date_end);
+        });
     }
 
     // Duyệt tài xế

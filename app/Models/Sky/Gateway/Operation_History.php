@@ -12,7 +12,7 @@ class Operation_History extends Model{
         'created_at' => 'timestamp',
     ];
 
-    function manager($has_parent, $filter){
+    function manager($has_parent, $filter) {
         if(request()->method() != 'POST'){
             return response_custom('Sai phương thức!', 1, [],405);
         }

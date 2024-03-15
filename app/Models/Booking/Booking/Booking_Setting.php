@@ -6,11 +6,11 @@ namespace App\Models\Booking\Booking;
 //use Illuminate\Support\Facades\DB;
 //use League\Flysystem\Config;
 use MongoDB\Laravel\Eloquent\Model;
-use App\Models\CustomCasts\jsonToArray;
+//use App\Models\CustomCasts\jsonToArray;
 //use Illuminate\Support\Facades\Http;
 //use function League\Flysystem\map;
 
-class Setting extends Model{
+class Booking_Setting extends Model{
     protected $connection = 'sky_booking';
     protected $table = 'booking_setting';
     protected $casts = [

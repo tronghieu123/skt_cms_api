@@ -34,8 +34,8 @@ class Direction_Booking extends Model
         'date_end' => 'timestamp',
         'schedule_time' => 'timestamp'
     ];
-    protected $with = ['status_info', 'driver_info', 'method_info', 'customer_rated', 'driver_rated'];
-    protected $appends = ['vehicle_type', 'user_cancel_fullname'];
+    protected $with = ['driver_info', 'method_info', 'customer_rated', 'driver_rated'];
+    protected $appends = ['vehicle_type', 'status_info', 'user_cancel_fullname'];
 
     public function customer_rated()
     {
@@ -59,21 +59,32 @@ class Direction_Booking extends Model
         }
     }
 
-    public function status_info()
-    {
-        return $this->hasOne(Booking_Status::class, 'value', 'is_status')->withCasts(['created_at' => 'timestamp', 'updated_at' => 'timestamp'])->select('title', 'color_background', 'color_text', 'value');
-    }
-
     public function method_info()
     {
         return $this->hasOne(Method_Payment::class, '_id', 'method')->withCasts(['created_at' => 'timestamp', 'updated_at' => 'timestamp'])->select('title', 'picture');
     }
 
+    public function getStatusInfoAttribute()
+    {
+        $output = [];
+        switch ($this->type) {
+            case 'booking':
+                $output = Booking_Status::where('value', $this->is_status)->withCasts(['created_at' => 'timestamp', 'updated_at' => 'timestamp'])->select('title', 'color_background', 'color_text', 'value')->first();
+                break;
+            case 'delivery':
+                $output = Delivery_Status::where('value', $this->is_status)->withCasts(['created_at' => 'timestamp', 'updated_at' => 'timestamp'])->select('title', 'color_background', 'color_text', 'value')->first();
+                break;
+            default:
+                break;
+        }
+        return $output;
+    }
+
     public function getReasonAttribute($value)
     {
         $output = $value ?? '';        
-        if(!empty($this->reason_id)) {
-            $output = Booking_Reason_Cancel::find($this->reason_id)->value('title');
+        if(!empty($this->reason_id)) {            
+            $output = Booking_Reason_Cancel::where('_id', $this->reason_id)->value('title');
         }        
         return $output;
     }
@@ -153,11 +164,11 @@ class Direction_Booking extends Model
             $send = ims_json_decode($tmp);
 
             $infoDriver = Driver::find($send['info_driver']['_id']);
-            $from['lat'] = $infoBooking['detail']['lat'] ?? '';
-            $from['lng'] = $infoBooking['detail']['lng'] ?? '';
-            $to['lat'] = $send['info_driver']['latitude'] ?? '';
-            $to['lng'] = $send['info_driver']['longitude'] ?? '';
-
+            $from['lat'] = $send['info_driver']['latitude'] ?? '';
+            $from['lng'] = $send['info_driver']['longitude'] ?? '';
+            $to['lat'] = $infoBooking['detail']['lat'] ?? '';
+            $to['lng'] = $infoBooking['detail']['lng'] ?? '';
+            
             $output = $this->get_address_goong($from, $to);
             $output['lat'] = $to['lat'];
             $output['lng'] = $to['lng'];
@@ -200,16 +211,20 @@ class Direction_Booking extends Model
         }
 
         $data = Direction_Booking::filter()
-            ->when(!empty(request('item')) ?? null, function ($query){
-                $query->where('_id', request('item'));
-            })
             ->orderBy('created_at', 'desc')
             ->paginate(Config('per_page'), Config('fillable'), 'page', Config('current_page'))
             ->toArray();
-        // $data['data'] = collect($data['data'])->map(function($row){
-        //     $row['driver_info']['full_name'] = 'An';
-        //     return $row;
-        // });
+        $data['data'] = collect($data['data'])->map(function($row){
+            $destination = $row['destination'];
+            foreach ($destination as $key => $value) {
+                if($row['type'] == 'delivery'){
+                    $destination[$key]['detail']['delivery_type'] = Delivery_Type::where(["_id" => $value['detail']['delivery_type']])->value('title');
+                    $destination[$key]['detail']['info_status'] = Delivery_Status::where(["value" => $value['detail']['is_status']])->select('title', 'value', 'color_text', 'color_background')->first();
+                }
+            }
+            $row['destination'] = $destination;
+            return $row;
+        });
         return response_pagination($data);
     }
 
@@ -230,9 +245,14 @@ class Direction_Booking extends Model
                     'is_show' => 1,
                     'is_complete' => 0,
                     'is_cancel' => 0,
-                ])->where('is_status', '<', 3)
+                ])->where('is_status', '!=', 3)
                     ->where('driver_id', '!=', '')
-                    ->where('driver_id', '!=', 0);
+                    ->where('driver_id', '!=', 0)
+                    ->where(function($q) {
+                        $q->whereNull('schedule_time')
+                            ->orWhere('schedule_time', '=', '')
+                            ->orWhere('schedule_time', '=', 0);
+                    });
             })
             ->when(request('type') == 'complete' ?? null, function ($query) { // Hoàn thành
                 $query->where([
@@ -240,6 +260,7 @@ class Direction_Booking extends Model
                     'is_complete' => 1,
                     'is_cancel' => 0,
                     'is_status' => 3,
+                    // 'is_virtual' => 0,
                 ])->where('driver_id', '!=', '')
                     ->where('driver_id', '!=', 0);
             })
@@ -251,35 +272,28 @@ class Direction_Booking extends Model
                 ])->where('driver_id', '!=', '')
                     ->where('driver_id', '!=', 0);
             })
-            ->when(request('type') == 'transporting' ?? null, function ($query) { // Hủy đơn
-                $query->where([
-                    'is_show' => 1,
-                    'is_cancel' => 1,
-                ])->where('driver_id', '!=', '')
-                    ->where('driver_id', '!=', 0);
-            })
-            ->when(request('type') == 'booking' ?? null, function ($query) { // Hủy đơn
+            ->when(request('type') == 'booking' ?? null, function ($query) { // chở khách
                 $query->where([
                     'is_show' => 1,
                     'type' => 'booking',
                 ])->where('driver_id', '!=', '')
                     ->where('driver_id', '!=', 0);
             })
-            ->when(request('type') == 'delivery' ?? null, function ($query) { // Hủy đơn
+            ->when(request('type') == 'delivery' ?? null, function ($query) { // giao hàng
                 $query->where([
                     'is_show' => 1,
                     'type' => 'delivery',
                 ])->where('driver_id', '!=', '')
                     ->where('driver_id', '!=', 0);
             })
-            ->when(request('type') == 'food' ?? null, function ($query) { // Hủy đơn
+            ->when(request('type') == 'food' ?? null, function ($query) { // giao đồ ăn
                 $query->where([
                     'is_show' => 1,
                     'type' => 'food',
                 ])->where('driver_id', '!=', '')
                     ->where('driver_id', '!=', 0);
             })
-            ->when(request('type') == 'schedule' ?? null, function ($query) { // Hủy đơn
+            ->when(request('type') == 'schedule' ?? null, function ($query) { // hẹn giờ
                 $query->where([
                     'is_show' => 1,
                 ])->where('is_status', '!=', 1)
@@ -288,7 +302,7 @@ class Direction_Booking extends Model
                     ->where('schedule_time', '>=', now())
                     ->whereNotNull('schedule_time');
             })
-            ->when(request('keyword') ?? null, function ($query) { // Hủy đơn
+            ->when(request('keyword') ?? null, function ($query) { // tìm kiếm
                 $query->where(function ($q) {
                     $q->where('_id', request('keyword'))
                         ->orWhere('item_code', 'like', '%' . request('keyword') . '%')
@@ -297,6 +311,9 @@ class Direction_Booking extends Model
                         ->orWhere('driver_full_name', 'like', '%' . request('keyword') . '%')
                         ->orWhere('driver_phone', 'like', '%' . request('keyword') . '%');
                 });
+            })
+            ->when(!empty(request('item')) ?? null, function ($query){
+                $query->where('_id', request('item'));
             });
     }
 

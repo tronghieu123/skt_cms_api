@@ -349,7 +349,7 @@ class Voucher extends Model{
             $data['method_type_selected'] = $method_type_selected;
             $data['group_id_selected'] = $voucher_group;
             $data['trademark_id_selected'] = $voucher_trademark;
-            return response_custom('',0,$data);
+            return response_custom('',0, $data);
         }
     }
 }

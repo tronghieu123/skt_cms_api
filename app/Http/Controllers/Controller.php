@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Support\Collection;
 use App\Models\Sky\Gateway\Operation_History_Cms;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
@@ -9,6 +10,7 @@ use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Http\Request;
 
 class Controller extends BaseController
 {
@@ -17,9 +19,8 @@ class Controller extends BaseController
     protected $func;
     protected $db;
 
-    public function Handle(){
+    public function Handle() {
         Config::set('lang_cur', (!empty(request('lang')) ? request('lang') : 'vi'));
-        Config::set('admin_id', '656840d9a7955ceb440160f4');
         Config::set('Api_app', config('app.Api_app'));
         Config::set('Api_link', config('app.Api_link'));
         Config::set('app.timezone', 'Asia/Bangkok');
@@ -27,13 +28,13 @@ class Controller extends BaseController
         if(!request()->has('root') || !request()->has('mod') || !request()->has('act')){
             return response_custom('Không tìm thấy module hoặc action!', 1);
         }
-        if(!in_array(request('root'), ['sky','report','system','booking','shopping','fnb','coach','hotel','cleaning','airplaneticket','englishpractice','smarthome'])){
+        if(!in_array(request('root'), ['cms','sky','report','system','booking','shopping','fnb','coach','hotel','cleaning','airplaneticket','englishpractice','smarthome'])){
             return response_custom('Không tìm thấy hành động!', 1);
         }
         (new Operation_History_Cms())->log(); // Lưu log gọi api
 
         $root = (request('mod') == 'config' && in_array(request('act'), ['menu','location'])) ? 'sky' : request('root');
-        $check = DB::table('gateway')
+        $gateway = $check = DB::table('gateway')
             ->where('type', $root)
             ->where('module', request('mod'))
             ->where('action', request('act'))
@@ -46,7 +47,7 @@ class Controller extends BaseController
         // Các trường cần lấy
         $fillable = !empty(request('fillable')) ? explode_custom(request('fillable')) : [];
         Config::set('fillable', $fillable);
-        // -------------------- Dành cho phân trang --------------------
+        // -------------------- thôn tin admin --------------------
         // Số item phân trang
         $num_list = DB::table('sky_setting')->where('setting_key', 'admin_nlist')->where('is_show', 1)->first(['setting_value']);
         $num_list = !empty($num_list['setting_value']) ? (int)$num_list['setting_value'] : 30;
@@ -55,6 +56,33 @@ class Controller extends BaseController
         $current_page = !empty(request('page')) ? (int)request('page') : 1;
         Config::set('current_page', $current_page);
         // -------------------- Dành cho phân trang --------------------
+
+        /********* thông tin admin *********/
+            if(request()->user()) {
+                $admin_info = request()->user()->toArray();
+                $group = DB::table('admin_group')->where('_id', $admin_info['group_id'])->where('is_show', 1)->select('data')->first();
+                /********* kiểm tra quyền *********/
+                $flag = 0;
+                if($group) {
+                    foreach ($group['data'] as $k => $v) {
+                        if($v['gw_id']==mongodb_id($gateway['_id'])) {
+                            // kiểm tra access_api
+                            $api = request()->segment(count(request()->segments()));
+                            if(in_array($api, $v['api_access'])) {
+                                $flag = 1;
+                            }
+                        }
+                    }
+                }
+                if($flag==0) {
+//                    return error_forbidden('Không có quyền truy cập.');
+                }
+                /********* kiểm tra quyền *********/
+            }
+            Config::set('admin_info', $admin_info);
+            Config::set('admin_id', $admin_info['_id']);
+        /********* thông tin admin *********/
+
 
         $check_ok = 0; // Vào được các api dùng chung hay không
         if(!empty(request('sub'))){
@@ -68,14 +96,14 @@ class Controller extends BaseController
                 $check_ok = 1;
             }
         }
-        if($check_ok){
-            if(!Config('database.connections.'.$check['database'])){
+        if($check_ok) {
+            if(!Config('database.connections.'.$check['database'])) {
                 return response_custom('Không tìm thấy database!', 1);
             }
             if(!Schema::connection($check['database'])->hasTable($check['table'])){
                 return response_custom('Không tìm thấy bảng!', 1);
             }
-            if(!request()->has('sub')){
+            if(!request()->has('sub')) {
                 return response_custom('Không tìm thấy module hoặc action!', 1);
             }
             if(!in_array(request('sub'), ['add','edit','update','trash','restore','delete','manage','manage_trash','detail','setting','listSetting'])){
@@ -113,11 +141,11 @@ class Controller extends BaseController
                     break;
             }
         }else{
-            return $this->includeFile();
+            return $this->includeFile(); // all
         }
     }
 
-    function includeFile(){
+    function includeFile() {
         $root = ucwords(request('root'));
         if(request('mod') == 'config' && request('act') == 'menu'){
             $root = 'Sky';
@@ -154,7 +182,7 @@ class Controller extends BaseController
                         $update_link = array(
                             'table_id' => mongodb_id($id['_id'])
                         );
-                        $this->db->collection('friendly_link')->where('friendly_link',$arr_in['friendly_link'])->update($update_link);
+                        $this->db->collection('friendly_link')->where('friendly_link', $arr_in['friendly_link'])->update($update_link);
                     }
                     return response_custom('Thêm dữ liệu thành công!');
                 }
@@ -417,9 +445,9 @@ class Controller extends BaseController
                                 $pluck1 = !empty($v['pluck'][0]) ? trim($v['pluck'][0]) : 'title';
                                 $pluck2 = !empty($v['pluck'][1]) ? trim($v['pluck'][1]) : '_id';
                                 if(!empty($v['db'])){
-                                    $data['arr_element'][$k]['data'] = DB::connection($v['db'])->collection($v['table'])->pluck($pluck1, $pluck2)->toArray();
+                                    $data['arr_element'][$k]['data'] = DB::connection($v['db'])->collection($v['table'])->where('is_show', 1)->pluck($pluck1, $pluck2)->toArray();
                                 }else{
-                                    $data['arr_element'][$k]['data'] = $this->db->collection($v['table'])->pluck($pluck1, $pluck2)->toArray();
+                                    $data['arr_element'][$k]['data'] = $this->db->collection($v['table'])->where('is_show', 1)->pluck($pluck1, $pluck2)->toArray();
                                 }
                             }
                         }
@@ -473,9 +501,9 @@ class Controller extends BaseController
                                 $pluck1 = !empty($v_custom['pluck'][0]) ? trim($v_custom['pluck'][0]) : 'title';
                                 $pluck2 = !empty($v_custom['pluck'][1]) ? trim($v_custom['pluck'][1]) : '_id';
                                 if(!empty($v_custom['db'])){
-                                    $data['arr_element'][$k]['list_key'][$k_custom]['data'] = DB::connection($v_custom['db'])->collection($v_custom['table'])->pluck($pluck1, $pluck2)->toArray();
+                                    $data['arr_element'][$k]['list_key'][$k_custom]['data'] = DB::connection($v_custom['db'])->collection($v_custom['table'])->where('is_show', 1)->pluck($pluck1, $pluck2)->toArray();
                                 }else{
-                                    $data['arr_element'][$k]['list_key'][$k_custom]['data'] = $this->db->collection($v_custom['table'])->pluck($pluck1, $pluck2)->toArray();
+                                    $data['arr_element'][$k]['list_key'][$k_custom]['data'] = $this->db->collection($v_custom['table'])->where('is_show', 1)->pluck($pluck1, $pluck2)->toArray();
                                 }
                             }
                         }
@@ -608,6 +636,7 @@ class Controller extends BaseController
                     ->when((request('mod') == 'config' && request('act') == 'menu') ?? null, function ($query){
                         $query->where('type', request('root'));
                     })
+                    ->where('is_show', 1)
                     ->where('parent_id', $k)
                     ->get([$check['pluck1']])
                     ->keyBy($check['pluck2'])
@@ -621,6 +650,7 @@ class Controller extends BaseController
                 ->when((request('mod') == 'config' && request('act') == 'menu') ?? null, function ($query){
                     $query->where('type', request('root'));
                 })
+                ->where('is_show', 1)
                 ->where('parent_id', '')
                 ->get([$check['pluck1']])
                 ->keyBy($check['pluck2'])

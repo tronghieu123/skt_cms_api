@@ -1,54 +1,29 @@
 <?php
 
-use App\Http\Controllers\V1\DistrictController;
-use App\Http\Controllers\V1\ProvinceController;
-use App\Http\Controllers\V1\WardController;
-use Illuminate\Http\Request;
+//use App\Http\Controllers\V1\DistrictController;
+//use App\Http\Controllers\V1\ProvinceController;
+//use App\Http\Controllers\V1\WardController;
+//use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 $namespace = 'App\\Http\\Controllers';
+$tmp = explode('/api/', request()->url());
+$api = explode('/', $tmp[1] ?? '')[0] ?? '';
 
-Route::get('/getToken/{type?}', function(Request $request, $type = ''){    
-    switch ($type) {
-        case 'driver':
-            return (new App\Http\Token)->getToken('', '65701f6ca83d1baee4009d8f');
-            break;        
-        default:
-            return (new App\Http\Token)->getToken('', '656d9c5f8a8c8a138e015b01');
-            break;
+if ($api=='login' || $api=='role_group') {
+    if($api=='role_group') {
+        Route::post('/api/role_group', $namespace. '\\AuthController@role_group');
+    } else {
+        Route::post('/api/login', $namespace. '\\AuthController@login');
     }
-});
-
-Route::post('/login', 'App\\Http\\Controllers\\AuthController@login')->name('login');
-
-Route::middleware('auth:sanctum')->get('api/user', function (Request $request) {
-    return $request->user();
-});
-
-Route::prefix('api/v1')->group(function () {
-    // \DB::listen(function($query) {
-    //     print_r(json_encode(($query->sql)));
-    // });
-    Route::apiResources([
-        'province' => ProvinceController::class,
-        'district' => DistrictController::class,
-        'ward' => WardController::class,
-    ]);    
-});
-
-Route::group(
-    ['namespace' => $namespace, 'controller' => $namespace . '\\Controller', 'middleware' => 'lang', 'prefix' => 'api'],
-    function () {
-        $tmp = explode('/api/', request()->url());
-        $api = explode('/', $tmp[1] ?? '')[0] ?? '';
-        //        $api_no_token = ['login'];
-        Route::match(['get', 'post', 'put', 'delete'], "{$api}/{id?}", "Handle");
-        //        if(in_array($api, $api_no_token)){
-//            Route::post('api/login', '\\App\\Models\\User@login');
-//        } else {
-//            Route::group(['middleware' => 'auth'], function() use ($api) {
-//                Route::match(['get', 'post', 'put', 'delete'], "api/{$api}/{id?}", "Handle");
-//            });
-//        }
-    }
-);
+    return true;
+} else {
+    // Route group with Sanctum middleware
+    Route::group(['namespace' => $namespace, 'controller' => $namespace . '\\Controller', 'middleware' => ['auth:sanctum', 'lang'], 'prefix' => 'api'], function () use($namespace, $api) {
+        if($api=='logout') {
+            Route::post('/logout', $namespace. '\\AuthController@logout');
+        } else {
+            Route::match(['get', 'post', 'put', 'delete'], "{$api}/{id?}", "Handle");
+        }
+    });
+}

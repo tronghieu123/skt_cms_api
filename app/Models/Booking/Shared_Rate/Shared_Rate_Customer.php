@@ -13,7 +13,7 @@ use App\Models\Booking\Driver\Driver;
 use App\Models\Booking\Driver\Partner;
 
 use App\Models\Booking\Booking\Booking;
-use App\Models\Booking\Booking\Setting;
+use App\Models\Booking\Booking\Booking_Setting;
 
 use Illuminate\Support\Facades\Http;
 use MongoDB\Laravel\Eloquent\Builder;
@@ -152,7 +152,7 @@ class Shared_Rate_Customer extends Model{
         if(!empty(request('item'))){
             $rate = Shared_Rate_Customer::where('_id', request('item'))->first();
             if($rate){
-                $setting = Setting::pluck('setting_value', 'setting_key');
+                $setting = Booking_Setting::pluck('setting_value', 'setting_key');
 
                 $rate = $rate->toArray();
                 $rate['is_approve'] = $rate['is_approve'] ?? 0;
@@ -200,7 +200,7 @@ class Shared_Rate_Customer extends Model{
                                 return response_custom('Vui lòng nhập lí do từ chối!',1);
                             }
                         }elseif(request('approve') == 1){ // Duyệt
-                            switch ($rate['is_approve']){
+                            switch ($rate['is_approve']) {
                                 case 0:
                                 case 2:
                                     $arr_bonus = !empty(request('arr_bonus')) ? json_decode(request('arr_bonus'), true) : [];

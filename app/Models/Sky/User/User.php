@@ -49,11 +49,20 @@ class User extends Model
             if (!preg_match('/(((\+|)84)|0)(3|5|7|8|9)+([0-9]{8})\b/', $data['username'])) {
                 return response_custom('Tên đăng nhập không hợp lệ', 1);
             }
+            if(!$user_id){
+                if(empty($data['password'])){
+                    return response_custom('Mật khẩu không được để trống!', 1);
+                }
+                if(empty($data['re_password'])){
+                    return response_custom('Mật khẩu nhập lại không được để trống!', 1);
+                }
+            }
             if(!empty($data['re_password']) && !empty($data['password'])){
                 if($data['re_password'] != $data['password']){
                     return response_custom('Mật khẩu nhập lại không khớp', 1);
                 }
-                $data['password'] = Hash::make($data['password']);
+//                $data['password'] = Hash::make($data['password']);
+                $data['password'] = bcrypt($data['password']);
                 unset($data['re_password']);
             }else{
                 unset($data['re_password'], $data['password']);

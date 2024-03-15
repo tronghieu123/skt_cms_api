@@ -109,8 +109,8 @@ if (!function_exists('error_forbidden')) {
 }
 
 if (!function_exists('response_custom')) {
-    function response_custom($mess = '', $error = 0, $data = array(), $code = 200){
-        if($error == 1 && $code == 200){
+    function response_custom($mess = '', $error = 0, $data = array(), $code = 200) {
+        if($error == 1 && $code == 200) {
             $code = 400;
         }
         $response = [
@@ -121,7 +121,7 @@ if (!function_exists('response_custom')) {
         if(!empty($data)){
             $response['data'] = $data;
         }
-        if(!empty($data['other'])){
+        if(!empty($data['other'])) {
             foreach ($data['other'] as $k => $v){
                 $response[$k] = $v;
             }
@@ -638,7 +638,11 @@ if (!function_exists('get_arr_in')) {
                                 $arr_in[$k] = json_encode(explode(',', $arr_in[$k][0])); // danh sách hình ảnh lưu thành json
                                 break;
                             case 'password':
-                                $arr_in[$k] = Hash::make($arr_in[$k]);
+                                if(!empty($arr_in[$k])){
+                                    $arr_in[$k] = Hash::make($arr_in[$k]);
+                                }else{
+                                    unset($arr_in[$k]);
+                                }
                                 break;
                             case 'friendly_link':
                                 $db_info = DB::table('gateway')
@@ -910,6 +914,30 @@ if (!function_exists('color_status')) {
                 break;
             default:
                 $output['title'] = 'Chưa có';
+                $output['color'] = '#000';
+                $output['background'] = '#e3e3e3';
+                break;
+        }
+        return $output;
+    }
+}
+
+if (!function_exists('color_status_expired')) {
+    function color_status_expired($code=0) {
+        $output = [];
+        switch ($code) {
+            case 1:
+                $output['title'] = 'Sắp hết hạn';
+                $output['color'] = '#009CE1';
+                $output['background'] = '#E0F3FF';
+                break;
+            case 2:
+                $output['title'] = 'Đã hết hạn';
+                $output['color'] = '#E50000';
+                $output['background'] = '#FFD8D8';
+                break;
+            default:
+                $output['title'] = 'Chưa hết hạn';
                 $output['color'] = '#000';
                 $output['background'] = '#e3e3e3';
                 break;

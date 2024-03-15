@@ -1,34 +1,26 @@
 <?php
 
-namespace App\Models\Booking\Driver;
+namespace App\Models\Booking\Booking;
 
-//use App\Http\Token;
-//use Illuminate\Support\Facades\DB;
-//use League\Flysystem\Config;
 use MongoDB\Laravel\Eloquent\Model;
-//use App\Models\CustomCasts\jsonToArray;
-//use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Http;
 
-use App\Models\Booking\Booking\Booking_Status;
-//use App\Models\Booking\Booking\Booking_Log_Find;
-use App\Models\Booking\Booking\Method_Payment;
-//use App\Models\Booking\Driver\Driver_Info;
-//use App\Models\Booking\Driver\Vehicle;
-//use App\Models\Booking\Driver\Driver;
-//use App\Models\Booking\Driver\Driver_Token;
+use App\Models\Booking\Driver\Vehicle;
+use App\Models\Booking\Driver\Driver;
+use App\Models\Booking\Driver\Driver_Token;
 use App\Models\Booking\Service\Service_Booking;
 use App\Models\Booking\Service\Service_Delivery;
 use App\Models\Booking\Service\Service_Food;
 use App\Models\Booking\Shared_Rate\Shared_Rate_Customer;
 use App\Models\Booking\Shared_Rate\Shared_Rate_Driver;
 use App\Models\Sky\User\User;
-//use App\Models\Sky\User\DeviceToken;
-//use App\Models\Sky\Config\Setting;
+use App\Models\Sky\User\DeviceToken;
+use App\Models\Sky\Config\Setting;
 use Google\Cloud\Core\Timestamp;
 
-//use function League\Flysystem\map;
+class Virtual extends Model
+{
 
-class Income extends Model{
     public $timestamps = true;
     protected $connection = 'sky_booking';
     protected $table = 'booking';
@@ -39,7 +31,8 @@ class Income extends Model{
         'expired_booking' => 'timestamp',
         'date_cancel' => 'timestamp',
         'date_start' => 'timestamp',
-        'date_end' => 'timestamp'
+        'date_end' => 'timestamp',
+        'schedule_time' => 'timestamp'
     ];
     protected $with = ['status_info', 'driver_info', 'method_info', 'customer_rated', 'driver_rated'];
     protected $appends = ['vehicle_type', 'user_cancel_fullname'];
@@ -56,14 +49,7 @@ class Income extends Model{
 
     public function driver_info()
     {
-        switch (request()->type) {
-            case 'pending':
-                return $this->hasOne(Driver::class, '_id',  'driver_waiting_confirm');
-                break;
-            default:
-                return $this->hasOne(Driver::class, '_id',  'driver_id');
-                break;
-        }
+        return $this->hasOne(Driver::class, '_id',  'driver_id');
     }
 
     public function status_info()
@@ -74,6 +60,15 @@ class Income extends Model{
     public function method_info()
     {
         return $this->hasOne(Method_Payment::class, '_id', 'method')->withCasts(['created_at' => 'timestamp', 'updated_at' => 'timestamp'])->select('title', 'picture');
+    }
+
+    public function getReasonAttribute($value)
+    {
+        $output = $value ?? '';
+        if(!empty($this->reason_id)) {
+            $output = Booking_Reason_Cancel::find($this->reason_id)->value('title');
+        }
+        return $output;
     }
 
     public function getUserCancelFullnameAttribute()
@@ -132,54 +127,124 @@ class Income extends Model{
         return $output;
     }
 
-    public function income()
+
+    public function get_location_start()
     {
         if (request()->method() != 'POST') {
             return response_custom('Sai phương thức!', 1, [], 405);
         }
 
-        $select = [
-            'type', 'vehicle_id', 'service_id', 'item_code', 'driver_id', 'driver_info','method',
-            'amount_driver', 'amount_driver_revenue', 'amount_tip',
-            'created_at', 'updated_at', 'date_start', 'date_end'
-        ];
+        $infoBooking = Virtual::where('_id', request()->item)
+            ->first()
+            ->value('origin');
+        if (!$infoBooking) {
+            return response_custom('Không tìm thấy đơn hàng!', 1);
+        }
+        $logFind = Booking_Log_Find::where('booking_id', request()->item)->orderBy('date_create', 'desc')->first();
+        if($logFind) {
+            $tmp = $logFind->send;
+            $send = ims_json_decode($tmp);
 
-        $data = Income::filter()
+            $infoDriver = Driver::find($send['info_driver']['_id']);
+            $from['lat'] = $infoBooking['detail']['lat'] ?? '';
+            $from['lng'] = $infoBooking['detail']['lng'] ?? '';
+            $to['lat'] = $send['info_driver']['latitude'] ?? '';
+            $to['lng'] = $send['info_driver']['longitude'] ?? '';
+
+            $output = $this->get_address_goong($from, $to);
+            $output['lat'] = $to['lat'];
+            $output['lng'] = $to['lng'];
+            $output['driver_distance'] = $send['distance'] ?? '';
+            $output['driver_full_name'] = $infoDriver['full_name'];
+            $output['driver_phone'] = $infoDriver['phone'];
+            $output['type'] = 'Tự nhận chuyến';
+            return $output;
+        }
+    }
+
+    public function get_location_complete()
+    {
+        if (request()->method() != 'POST') {
+            return response_custom('Sai phương thức!', 1, [], 405);
+        }
+
+        $infoBooking = Virtual::where('_id', request()->item)
+            ->select('origin', 'latitude_driver_complete', 'longitude_driver_complete', 'driver_full_name', 'driver_phone', 'driver_distance')
+            ->first();
+        if (!$infoBooking) {
+            return response_custom('Không tìm thấy đơn hàng!', 1);
+        }
+
+        $from['lat'] = $infoBooking['latitude_driver_complete'] ?? '';
+        $from['lng'] = $infoBooking['longitude_driver_complete'] ?? '';
+        $to['lat'] = $infoBooking['latitude_driver_complete'] ?? '';
+        $to['lng'] = $infoBooking['longitude_driver_complete'] ?? '';
+
+        $output = $this->get_address_goong($from, $to);
+        $output['lat'] = $to['lat'];
+        $output['lng'] = $to['lng'];
+        return $output;
+    }
+
+    public function virtual()
+    {
+        if (request()->method() != 'POST') {
+            return response_custom('Sai phương thức!', 1, [], 405);
+        }
+
+        $data = Virtual::filter()
             ->where([
                 'is_show' => 1,
                 'is_complete' => 1,
                 'is_cancel' => 0,
                 'is_status' => 3,
-            ])
-            ->where('driver_id', '!=', '')
+                'is_virtual' => 1,
+            ])->where('driver_id', '!=', '')
             ->where('driver_id', '!=', 0)
-            ->when(!empty(request('item')) ?? null, function ($query){
-                $query->where('driver_id', request('item'));
-            })
-            ->select($select)
             ->orderBy('created_at', 'desc')
             ->paginate(Config('per_page'), Config('fillable'), 'page', Config('current_page'))
             ->toArray();
+        // dd($data);
+        // $data['data'] = collect($data['data'])->map(function($row){
+        //     $row['driver_info']['full_name'] = 'An';
+        //     return $row;
+        // });
         return response_pagination($data);
     }
 
     public static function scopeFilter($query)
     {
-        $query->when(request('keyword') ?? null, function ($query) { // tìm kiếm
+        $query->when(request('keyword') ?? null, function ($query) { // Hủy đơn
             $query->where(function ($q) {
                 $q->where('_id', request('keyword'))
-                    ->orWhere('item_code', request('keyword'))
+                    ->orWhere('item_code', 'like', '%' . request('keyword') . '%')
+                    ->orWhere('full_name', 'like', '%' . request('keyword') . '%')
+                    ->orWhere('phone', 'like', '%' . request('keyword') . '%')
                     ->orWhere('driver_full_name', 'like', '%' . request('keyword') . '%')
                     ->orWhere('driver_phone', 'like', '%' . request('keyword') . '%');
             });
-        })
-        ->when(request('date_start') ?? null, function ($query){
-            $date_start = convert_date_search(request('date_start'));
-            $query->whereDate("created_at", ">=", $date_start);
-        })
-        ->when(request('date_end') ?? null, function ($query){
-            $date_end = convert_date_search(request('date_end'));
-            $query->whereDate("created_at", "<=", $date_end);
+        })->when(!empty(request('item')) ?? null, function ($query){
+            $query->where('_id', request('item'));
         });
+    }
+
+    public function get_address_goong($from = [], $to = [])
+    {
+        $setting = Booking_Setting::pluck('setting_value', 'setting_key');
+        $output = [
+            'address' => '',
+            'link_map' => 'https://www.google.com/maps/dir/'
+        ];
+
+        $data = [
+            'latlng' => $from['lat'] . ',' . $from['lng'],
+            'api_key' => $setting['goong_api_key']
+        ];
+        $resp = Http::get('https://rsapi.goong.io/Geocode', $data)->json();
+
+        $output['address'] = $resp['results'][0]['formatted_address'] ?? '';
+        $output['link_map'] = 'https://www.google.com/maps/dir/' . $from['lat'] . ',' . $from['lng'] . '/' . $to['lat'] . ',' . $to['lng'] . '/@' . $from['lat'] . ',' . $from['lng'] . ',20z';
+
+        return $output;
     }
 }
